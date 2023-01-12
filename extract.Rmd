@@ -9,31 +9,58 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(devtools)
 library(tidyverse)
 library(lubridate)
 library(R.utils)
 library(raster)
 library(rgdal)
+library(ncdf4)
+library(rNOMADS)
+library(sf)
+library(sp)
+library(mapview)
+library(terra)
+
 
 ```
 
 ```{r}
+# #unzip all files, first list all files **ALREADY COMPLETE**
+# zip <- list.files(path = 'E:/MRMS', pattern = '.gz',
+#                   full.names = T)
+# 
+# #unzip all listed files
+# test <- lapply(zip, gunzip)
 
-test <- gunzip('E:/MRMS/RadarOnly_QPE_01H_00.00_20210602-000000.grib2.gz', remove = F)
+#pull in an example raster
+r <- rast('E:/MRMS/RadarOnly_QPE_01H_00.00_20220716-000000.grib2') %>%
+  project(., 'EPSG:26913')
 
-test2 <- brick(test)
 
-plot(test2)
- 
-#test2 <- as.array(test2) necessary
+#bennett polygons
+ben <- vect('GIS/mulch_study_watersheds.shp') %>%
+  project(., 'EPSG:26913')
 
-ben <- readOGR('C:/Users/sears/Documents/Repos/MRMS_R/GIS/mulch_study_watersheds.shp')
-plot(ben)
+#cpf polygon
+cpf <- vect('GIS/cameron_boundary.shp') %>%
+  project(., 'EPSG:26913')
 
-test3 <- projectRaster(from = test2, crs = 26913)
+#crop raster to cpf
+crop <- terra::crop(r, cpf)
 
-crop_test2 <- crop(test2, ben)
-plot(crop_test2)
+#only converting this to raster layer and SP  df for mapview
+ben1 <- as(ben, "Spatial")
+crop1 <- raster(crop)
+
+mapview(ben1) + mapview(crop1) 
+
+#extract using terra bc it has more functions :)
+extract_test <- terra::extract(crop, ben, touches = T, exact = T, df = T)
+extract_test
+
+
 
 ```
 
