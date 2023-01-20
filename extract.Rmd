@@ -19,6 +19,7 @@ library(sp)
 library(mapview)
 library(terra)
 library(tmap)
+library(readr)
 
 
 ```
@@ -117,6 +118,26 @@ write.csv(extract, paste0('extract_', extract$doy[1],'_', extract$hour[1],'.csv'
 ```
 
 ```{r compile all CSVs}
+
+#compile all CSVs
+mrms_21 <- list.files(path='./MRMS_data/2021', full.names = T) %>% 
+  lapply(read_csv) %>% 
+  bind_rows 
+
+mrms_22 <- list.files(path='./MRMS_data/2022', full.names = T) %>% 
+  lapply(read_csv) %>% 
+  bind_rows 
+
+#remove random columns
+mrms_21 <- mrms_21 %>%
+  dplyr::select(-c(doy, hour))
+
+mrms_22 <- mrms_22 %>%
+  dplyr::select(-c(...1, ID, doy, hour))
+
+```
+
+```{r get events and MI60 from MRMS}
 
 
 
