@@ -10,18 +10,15 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(devtools)
 library(tidyverse)
 library(lubridate)
-library(R.utils)
 library(raster)
 library(rgdal)
-library(ncdf4)
-library(rNOMADS)
 library(sf)
 library(sp)
 library(mapview)
 library(terra)
+library(tmap)
 
 
 ```
@@ -34,31 +31,94 @@ library(terra)
 # #unzip all listed files
 # test <- lapply(zip, gunzip)
 
+filename <- list.file(path = 'E:/MRMS', pattern = '.grib2')
+
 #pull in an example raster
 r <- rast('E:/MRMS/RadarOnly_QPE_01H_00.00_20220716-000000.grib2') %>%
-  project(., 'EPSG:26913')
-
+  terra::project(., 'EPSG:26913')
 
 #bennett polygons
 ben <- vect('GIS/mulch_study_watersheds.shp') %>%
-  project(., 'EPSG:26913')
+  terra::project(., 'EPSG:26913')
 
 #cpf polygon
 cpf <- vect('GIS/cameron_boundary.shp') %>%
-  project(., 'EPSG:26913')
+  terra::project(., 'EPSG:26913')
 
+# CODE BELOW IS OLD
+# #crs(r) == crs(cpf)
+# 
+# #crop raster to cpf
+# crop <- terra::crop(r, ext(cpf))
+# 
+# names(crop) <- 'p_mmhr'
+# 
+# #only converting this to raster layer and SP  df for mapview
+# #ben1 <- as(ben, "Spatial")
+# #crop1 <- raster(crop)
+# 
+# #mapview(ben1) + mapview(crop1) 
+# 
+# #extract using terra bc it has more functions :)
+# extract <- terra::extract(crop, ben, fun = mean, touches = T, exact = T)
+# extract$name <- ben$ID
+# 
+# extract
+# 
+# filename <- 'RadarOnly_QPE_01H_00.00_20220716-000000.grib2'
+# timestamp <- substr(filename, 25, 39)
+# 
+# extract <- extract %>%
+#   mutate(datetime = ymd_hms(timestamp)) %>%
+#   mutate(datetime = datetime - (6 * 60 * 60)) %>%
+#   mutate(doy = yday(datetime)) %>%
+#   mutate(hour = hour(datetime))
+# 
+# write.csv(extract, paste0('extract_', extract$doy[1],'_', extract$hour[1],'.csv'))
+
+```
+
+
+
+```{r make it a function}
+setwd('E:/MRMS_2022')
+
+filenames <- list.files(".", pattern='.grib2', full.names=F)
+
+#extract_MRMS <- function() {
+  
+  for(fileName in filenames) {
+
+#pull in raster
+r <- rast(fileName) %>%
+  terra::project(., 'EPSG:26913')
+   
 #crop raster to cpf
-crop <- terra::crop(r, cpf)
+crop <- terra::crop(r, ext(cpf))
 
-#only converting this to raster layer and SP  df for mapview
-ben1 <- as(ben, "Spatial")
-crop1 <- raster(crop)
-
-mapview(ben1) + mapview(crop1) 
+names(crop) <- 'p_mmhr'    
 
 #extract using terra bc it has more functions :)
-extract_test <- terra::extract(crop, ben, touches = T, exact = T, df = T)
-extract_test
+extract <- terra::extract(crop, ben, fun = mean, touches = T, exact = T)
+extract$name <- ben$ID
+    
+timestamp <- substr(fileName, 25, 39)
+
+extract <- extract %>%
+  mutate(datetime = ymd_hms(timestamp)) %>%
+  mutate(datetime = datetime - (6 * 60 * 60)) %>%
+  mutate(doy = yday(datetime)) %>%
+  mutate(hour = hour(datetime))
+
+write.csv(extract, paste0('extract_', extract$doy[1],'_', extract$hour[1],'.csv'))
+
+  }
+
+```
+
+```{r compile all CSVs}
+
+
 
 
 
