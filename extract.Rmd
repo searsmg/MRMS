@@ -135,12 +135,74 @@ mrms_21 <- mrms_21 %>%
 mrms_22 <- mrms_22 %>%
   dplyr::select(-c(...1, ID, doy, hour))
 
+write_csv(mrms_21, 'mrms_21.csv')
+write_csv(mrms_22, 'mrms_22.csv')
+
 ```
 
-```{r get events and MI60 from MRMS}
+```{r get hourly tip bucket}
+
+tip <- read_csv('bennett_rain_TB.csv') %>% 
+  mutate(hour = hour(datetime),
+         datetime = ymd_hm(datetime),
+         date = as.Date(datetime)) %>%
+  group_by(site, date, hour) %>%
+  summarize(hr_p_mm = sum(precip_mm)) %>%
+  mutate(datetime = ymd_h(paste(date, hour))) %>%
+  filter(datetime > '2021-07-19 23:00') %>%
+  ungroup() %>%
+  dplyr::select(-c(date, hour)) %>%
+  rename(p_mmhr = hr_p_mm) %>%
+  mutate(source = 'tb')
+  
+mrms21 <- read_csv('mrms_21.csv') %>%
+  dplyr::select(-c(...1, ID)) %>%
+  rename(site = name) %>%
+  mutate(site = tolower(site))
+
+mrms22 <- read_csv('mrms_22.csv') %>%
+  rename(site = name) %>%
+  mutate(site = tolower(site))
+
+mrms <- bind_rows(mrms21, mrms22) %>%
+  mutate(source = 'mrms')
+
+all <- bind_rows(mrms, tip) %>%
+  mutate(year = year(datetime)) %>%
+  group_by(source, year, site) %>%
+  mutate(cump = cumsum(p_mmhr)) %>%
+  ungroup()
+
+all21 <- filter(all, year ==2021)
+
+ggplot(all21, aes(datetime, cump, color = source)) + 
+  geom_line() +
+  facet_wrap(~site) 
+
+all22 <- filter(all, year == 2022)
+
+ggplot(all22, aes(datetime, cump, color = source)) + 
+  geom_line() +
+  facet_wrap(~site, scales = 'free') 
 
 
+```
 
+```{r}
+#compare the radar data when the TB has data
+compare <- left_join(tip, mrms, by = c('datetime', 'site')) 
+
+ggplot(compare, aes(p_mmhr.x, p_mmhr.y)) + 
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, size=1, color='red') +
+  facet_wrap(~site, scales = 'free') 
+
+compare22 <- filter(compare, year == 2022)
+
+ggplot(compare22, aes(p_mmhr.x, p_mmhr.y)) + 
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, size=1, color='red') +
+  facet_wrap(~site, scales = 'free') 
 
 
 ```
