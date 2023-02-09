@@ -32,19 +32,19 @@ library(readr)
 # #unzip all listed files
 # test <- lapply(zip, gunzip)
 
-filename <- list.file(path = 'E:/MRMS', pattern = '.grib2')
-
-#pull in an example raster
-r <- rast('E:/MRMS/RadarOnly_QPE_01H_00.00_20220716-000000.grib2') %>%
-  terra::project(., 'EPSG:26913')
-
-#bennett polygons
-ben <- vect('GIS/mulch_study_watersheds.shp') %>%
-  terra::project(., 'EPSG:26913')
-
-#cpf polygon
-cpf <- vect('GIS/cameron_boundary.shp') %>%
-  terra::project(., 'EPSG:26913')
+# filename <- list.file(path = 'E:/MRMS', pattern = '.grib2')
+# 
+# #pull in an example raster
+# r <- rast('E:/MRMS/RadarOnly_QPE_01H_00.00_20220716-000000.grib2') %>%
+#   terra::project(., 'EPSG:26913')
+# 
+# #bennett polygons
+# ben <- vect('GIS/mulch_study_watersheds.shp') %>%
+#   terra::project(., 'EPSG:26913')
+# 
+# #cpf polygon
+# cpf <- vect('GIS/cameron_boundary.shp') %>%
+#   terra::project(., 'EPSG:26913')
 
 # CODE BELOW IS OLD
 # #crs(r) == crs(cpf)
@@ -82,61 +82,61 @@ cpf <- vect('GIS/cameron_boundary.shp') %>%
 
 
 ```{r make it a function}
-setwd('E:/MRMS_2022')
-
-filenames <- list.files(".", pattern='.grib2', full.names=F)
-
-#extract_MRMS <- function() {
-  
-  for(fileName in filenames) {
-
-#pull in raster
-r <- rast(fileName) %>%
-  terra::project(., 'EPSG:26913')
-   
-#crop raster to cpf
-crop <- terra::crop(r, ext(cpf))
-
-names(crop) <- 'p_mmhr'    
-
-#extract using terra bc it has more functions :)
-extract <- terra::extract(crop, ben, fun = mean, touches = T, exact = T)
-extract$name <- ben$ID
-    
-timestamp <- substr(fileName, 25, 39)
-
-extract <- extract %>%
-  mutate(datetime = ymd_hms(timestamp)) %>%
-  mutate(datetime = datetime - (6 * 60 * 60)) %>%
-  mutate(doy = yday(datetime)) %>%
-  mutate(hour = hour(datetime))
-
-write.csv(extract, paste0('extract_', extract$doy[1],'_', extract$hour[1],'.csv'))
-
-  }
+# setwd('E:/MRMS_2022')
+# 
+# filenames <- list.files(".", pattern='.grib2', full.names=F)
+# 
+# #extract_MRMS <- function() {
+#   
+#   for(fileName in filenames) {
+# 
+# #pull in raster
+# r <- rast(fileName) %>%
+#   terra::project(., 'EPSG:26913')
+#    
+# #crop raster to cpf
+# crop <- terra::crop(r, ext(cpf))
+# 
+# names(crop) <- 'p_mmhr'    
+# 
+# #extract using terra bc it has more functions :)
+# extract <- terra::extract(crop, ben, fun = mean, touches = T, exact = T)
+# extract$name <- ben$ID
+#     
+# timestamp <- substr(fileName, 25, 39)
+# 
+# extract <- extract %>%
+#   mutate(datetime = ymd_hms(timestamp)) %>%
+#   mutate(datetime = datetime - (6 * 60 * 60)) %>%
+#   mutate(doy = yday(datetime)) %>%
+#   mutate(hour = hour(datetime))
+# 
+# write.csv(extract, paste0('extract_', extract$doy[1],'_', extract$hour[1],'.csv'))
+# 
+#   }
 
 ```
 
 ```{r compile all CSVs}
 
 #compile all CSVs
-mrms_21 <- list.files(path='./MRMS_data/2021', full.names = T) %>% 
-  lapply(read_csv) %>% 
-  bind_rows 
-
-mrms_22 <- list.files(path='./MRMS_data/2022', full.names = T) %>% 
-  lapply(read_csv) %>% 
-  bind_rows 
-
-#remove random columns
-mrms_21 <- mrms_21 %>%
-  dplyr::select(-c(doy, hour))
-
-mrms_22 <- mrms_22 %>%
-  dplyr::select(-c(...1, ID, doy, hour))
-
-write_csv(mrms_21, 'mrms_21.csv')
-write_csv(mrms_22, 'mrms_22.csv')
+# mrms_21 <- list.files(path='./MRMS_data/2021', full.names = T) %>% 
+#   lapply(read_csv) %>% 
+#   bind_rows 
+# 
+# mrms_22 <- list.files(path='./MRMS_data/2022', full.names = T) %>% 
+#   lapply(read_csv) %>% 
+#   bind_rows 
+# 
+# #remove random columns
+# mrms_21 <- mrms_21 %>%
+#   dplyr::select(-c(doy, hour))
+# 
+# mrms_22 <- mrms_22 %>%
+#   dplyr::select(-c(...1, ID, doy, hour))
+# 
+# write_csv(mrms_21, 'mrms_21.csv')
+# write_csv(mrms_22, 'mrms_22.csv')
 
 ```
 
@@ -173,7 +173,7 @@ all <- bind_rows(mrms, tip) %>%
   mutate(cump = cumsum(p_mmhr)) %>%
   ungroup()
 
-all21 <- filter(all, year ==2021)
+all21 <- filter(all, year == 2021)
 
 ggplot(all21, aes(datetime, cump, color = source)) + 
   geom_line() +
@@ -185,12 +185,12 @@ ggplot(all22, aes(datetime, cump, color = source)) +
   geom_line() +
   facet_wrap(~site, scales = 'free') 
 
-
 ```
 
 ```{r}
 #compare the radar data when the TB has data
-compare <- left_join(tip, mrms, by = c('datetime', 'site')) 
+compare <- left_join(tip, mrms, by = c('datetime', 'site')) %>%
+  mutate(year = year(datetime))
 
 ggplot(compare, aes(p_mmhr.x, p_mmhr.y)) + 
   geom_point() +
@@ -203,6 +203,98 @@ ggplot(compare22, aes(p_mmhr.x, p_mmhr.y)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
   facet_wrap(~site, scales = 'free') 
+
+# compare_full <- right_join(tip, mrms, by = c('datetime', 'site'))
+# 
+# ggplot(compare_full, aes(p_mmhr.x, p_mmhr.y)) + 
+#   geom_point() +
+#   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
+#   facet_wrap(~site, scales = 'free') 
+
+```
+
+# Compare for rain events 
+
+```{r}
+
+load('rain_metrics.RData')
+
+site_id <- c('me', 'mm', 'mw', 'ue', 'um', 'uw')
+
+get_radar_intens <- function(site_id){
+  
+mrms_prep <- mrms %>%
+  filter(site == site_id,
+         p_mmhr > 0) %>%
+  arrange(datetime) %>%
+  mutate(site == paste0(site_id))
+  
+mrms_intens <- get_setup(mrms_prep, mrms_prep$datetime) %>%
+  group_by(event, site) %>%
+  summarize(MI60 = max(p_mmhr),
+             duration = max(datetime) - min(datetime),
+             end_time = max(datetime)) %>%
+  mutate(duration_hr = as.numeric(duration/60/60))
+
+return(mrms_intens)
+
+}
+
+mrms_mi60 <- site_id %>%
+  map(~ get_radar_intens(site_id = .)) %>%
+  bind_rows() %>%
+  mutate(year = year(end_time))
+
+mrms_mi60 %>%
+  filter(year == 2021) %>% 
+ggplot(aes(end_time, MI60)) +
+  geom_point() +
+  facet_wrap(~site) +
+  ggtitle('2021')
+
+mrms_mi60 %>%
+  filter(year == 2022) %>% 
+ggplot(aes(end_time, MI60)) +
+  geom_point() +
+  facet_wrap(~site) +
+  ggtitle('2022')
+
+```
+
+Comparing tipping bucket to MRMS MI60s
+
+```{r compare MI60s}
+
+tb_mi <- read_csv("tb_events.csv") %>%
+  mutate(source = 'tb',
+         year = year(endtime)) %>%
+  rename(end_time = endtime) %>%
+  dplyr::select(MI60, end_time, Site, duration_hr, source, year) %>%
+  rename(site = Site)
+
+mrms_mi60 <- mrms_mi60 %>%
+  mutate(source = 'mrms') %>%
+  ungroup() %>% 
+  dplyr::select(MI60, end_time, site, duration_hr, source, year)
+
+
+comp <- bind_rows(tb_mi, mrms_mi60)
+
+
+comp %>%
+  filter(year == 2021) %>% 
+ggplot(aes(end_time, MI60, color = source, shape = source)) +
+  geom_point() +
+  facet_wrap(~site) +
+  ggtitle('2021')
+
+comp %>%
+  filter(year == 2022) %>% 
+ggplot(aes(end_time, MI60, color = source, shape = source)) +
+  geom_point() +
+  facet_wrap(~site) +
+  ggtitle('2022')
+
 
 
 ```
