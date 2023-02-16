@@ -1,14 +1,21 @@
 ---
-title: "Process_MRMS"
+title: "Comparing MRMS and Tipping Buckets"
 author: "Megan Sears"
 date: "`r Sys.Date()`"
-output: html_document
-editor_options: 
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: journal
+editor_options:
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = F,
+                      message = F,
+                      fig.width = 12,
+                      fig.height = 6)
 
 library(tidyverse)
 library(lubridate)
@@ -20,6 +27,8 @@ library(mapview)
 library(terra)
 library(tmap)
 library(readr)
+library(gridExtra)
+library(ggplot2); theme_set(theme_bw(base_size = 16))
 
 
 ```
@@ -78,8 +87,6 @@ library(readr)
 # write.csv(extract, paste0('extract_', extract$doy[1],'_', extract$hour[1],'.csv'))
 
 ```
-
-
 
 ```{r make it a function}
 # setwd('E:/MRMS_2022')
@@ -140,8 +147,11 @@ library(readr)
 
 ```
 
+# Cumulative rainfall from TB vs MRMS
+
 ```{r get hourly tip bucket}
 
+#bring in tb and sum as hourly
 tip <- read_csv('bennett_rain_TB.csv') %>% 
   mutate(hour = hour(datetime),
          datetime = ymd_hm(datetime),
@@ -154,7 +164,8 @@ tip <- read_csv('bennett_rain_TB.csv') %>%
   dplyr::select(-c(date, hour)) %>%
   rename(p_mmhr = hr_p_mm) %>%
   mutate(source = 'tb')
-  
+
+#bring in mrms hourly  
 mrms21 <- read_csv('mrms_21.csv') %>%
   dplyr::select(-c(...1, ID)) %>%
   rename(site = name) %>%
@@ -167,42 +178,59 @@ mrms22 <- read_csv('mrms_22.csv') %>%
 mrms <- bind_rows(mrms21, mrms22) %>%
   mutate(source = 'mrms')
 
+#bind together mrms and tb
 all <- bind_rows(mrms, tip) %>%
   mutate(year = year(datetime)) %>%
   group_by(source, year, site) %>%
   mutate(cump = cumsum(p_mmhr)) %>%
-  ungroup()
+  ungroup() %>%
+  arrange(datetime)
 
+#2021
 all21 <- filter(all, year == 2021)
 
 ggplot(all21, aes(datetime, cump, color = source)) + 
   geom_line() +
-  facet_wrap(~site) 
+  facet_wrap(~site) +
+  ggtitle('2021') +
+  labs(x = 'Date',
+       y = 'Cumulative summer rain (mm)')
 
+#2022
 all22 <- filter(all, year == 2022)
 
 ggplot(all22, aes(datetime, cump, color = source)) + 
   geom_line() +
-  facet_wrap(~site, scales = 'free') 
+  facet_wrap(~site, scales = 'free')  +
+  ggtitle('2022') +
+  labs(x = 'Date',
+       y = 'Cumulative summer rain (mm)')
 
 ```
 
-```{r}
+# 1:1 for TB vs. MRMS
+
+These data represent when the tipping bucket had a record.
+
+```{r 1:1}
 #compare the radar data when the TB has data
 compare <- left_join(tip, mrms, by = c('datetime', 'site')) %>%
-  mutate(year = year(datetime))
+  mutate(year = year(datetime)) %>%
+  rename(tb_rain_mm = p_mmhr.x,
+         mrms_rain_mm = p_mmhr.y)
 
-ggplot(compare, aes(p_mmhr.x, p_mmhr.y)) + 
+ggplot(compare, aes(tb_rain_mm, mrms_rain_mm)) + 
   geom_point() +
   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
   facet_wrap(~site, scales = 'free') 
 
 compare22 <- filter(compare, year == 2022)
 
-ggplot(compare22, aes(p_mmhr.x, p_mmhr.y)) + 
+ggplot(compare22, aes(tb_rain_mm, mrms_rain_mm)) + 
   geom_point() +
   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
-  facet_wrap(~site, scales = 'free') 
+  facet_wrap(~site, scales = 'free') +
+  ggtitle('2022')
 
 # compare_full <- right_join(tip, mrms, by = c('datetime', 'site'))
 # 
@@ -213,9 +241,142 @@ ggplot(compare22, aes(p_mmhr.x, p_mmhr.y)) +
 
 ```
 
-# Compare for rain events 
+# Compare precip events
 
-```{r}
+A comparison between TB and MRMS for a few rainfall events.
+
+```{r event compares}
+#use this df to pick out some events - but use all df to look actually compare
+tb_event <- read_csv("tb_events.csv") %>%
+  mutate(source = 'tb',
+         year = year(endtime)) %>%
+  rename(end_time = endtime)
+
+# 2022-08-15 event
+event1 <- all %>%
+  filter(between(datetime, ymd_hms('2022-08-15 11:00:00'),
+                 ymd_hms('2022-08-15 20:00:00'))) %>%
+  filter(site == 'me') %>%
+  group_by(source) %>%
+  mutate(cum_rain_mm = cumsum(p_mmhr))
+  
+event1_line <- event1 %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle('ME event: 2022-08-15 11:00 to 20:00') +
+  theme_bw() +
+    theme(legend.position = "none") +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)')
+
+event1_cum <- event1 %>%
+ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle(' ') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Cumulative rain (mm/hr)')
+
+grid.arrange(event1_line, event1_cum, nrow = 1)
+
+# 2022-07-15 event
+event2 <- all %>%
+  filter(between(datetime, ymd_hms('2022-07-15 15:00:00'),
+                 ymd_hms('2022-07-16 01:00:00'))) %>%
+  filter(site == 'ue') %>%
+  group_by(source) %>%
+  mutate(cum_rain_mm = cumsum(p_mmhr))
+  
+event2_line <- event2 %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle('UE event: 2022-07-15 16:00') +
+  theme_bw() +
+    theme(legend.position = "none") +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)')
+
+event2_cum <- event2 %>%
+ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle(' ') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Cumulative rain (mm/hr)')
+
+grid.arrange(event2_line, event2_cum, nrow = 1)
+
+#event example 3
+event3 <- all %>%
+  filter(between(datetime, ymd_hms('2021-08-03 09:00:00'),
+                 ymd_hms('2021-08-03 23:00:00'))) %>%
+  filter(site == 'me') %>%
+  group_by(source) %>%
+  mutate(cum_rain_mm = cumsum(p_mmhr))
+  
+event3_line <- event3 %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle('ME event: 2021-08-03 9:00 to 23:00') +
+  theme_bw() +
+    theme(legend.position = "none") +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)')
+
+event3_cum <- event3 %>%
+ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle(' ') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Cumulative rain (mm/hr)')
+
+grid.arrange(event3_line, event3_cum, nrow = 1)
+
+#event 4
+event1 <- all %>%
+  filter(between(datetime, ymd_hms('2021-08-03 09:00:00'),
+                 ymd_hms('2021-08-03 20:00:00'))) %>%
+  filter(site == 'uw') %>%
+  group_by(source) %>%
+  mutate(cum_rain_mm = cumsum(p_mmhr))
+  
+event1_line <- event1 %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle('UW event: 2021-08-03 09:00 to 20:00') +
+  theme_bw() +
+    theme(legend.position = "none") +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)')
+
+event1_cum <- event1 %>%
+ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
+       size = 6) +
+  geom_line() +
+  ggtitle(' ') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Cumulative rain (mm/hr)')
+
+grid.arrange(event1_line, event1_cum, nrow = 1)
+
+
+```
+
+
+
+
+# MRMS MI60
+
+```{r mrms mi60}
 
 load('rain_metrics.RData')
 
@@ -250,22 +411,22 @@ mrms_mi60 %>%
 ggplot(aes(end_time, MI60)) +
   geom_point() +
   facet_wrap(~site) +
-  ggtitle('2021')
+  ggtitle('MRMS 2021')
 
 mrms_mi60 %>%
   filter(year == 2022) %>% 
 ggplot(aes(end_time, MI60)) +
   geom_point() +
   facet_wrap(~site) +
-  ggtitle('2022')
+  ggtitle('MRMS 2022')
 
 ```
 
-Comparing tipping bucket to MRMS MI60s
+# Comparing tipping bucket to MRMS MI60s
 
 ```{r compare MI60s}
-
-tb_mi <- read_csv("tb_events.csv") %>%
+#read in tb events
+tb_mi60 <- read_csv("tb_events.csv") %>%
   mutate(source = 'tb',
          year = year(endtime)) %>%
   rename(end_time = endtime) %>%
@@ -278,24 +439,20 @@ mrms_mi60 <- mrms_mi60 %>%
   dplyr::select(MI60, end_time, site, duration_hr, source, year)
 
 
-comp <- bind_rows(tb_mi, mrms_mi60)
+comp_mi60 <- bind_rows(tb_mi60, mrms_mi60)
 
-
-comp %>%
+comp_mi60 %>%
   filter(year == 2021) %>% 
 ggplot(aes(end_time, MI60, color = source, shape = source)) +
   geom_point() +
   facet_wrap(~site) +
   ggtitle('2021')
 
-comp %>%
+comp_mi60 %>%
   filter(year == 2022) %>% 
 ggplot(aes(end_time, MI60, color = source, shape = source)) +
   geom_point() +
   facet_wrap(~site) +
   ggtitle('2022')
 
-
-
 ```
-
