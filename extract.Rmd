@@ -46,33 +46,33 @@ library(ggplot2); theme_set(theme_bw(base_size = 16))
 # #pull in an example raster
 # r <- rast('E:/MRMS/RadarOnly_QPE_01H_00.00_20220716-000000.grib2') %>%
 #   terra::project(., 'EPSG:26913')
-# 
+#
 # #bennett polygons
 # ben <- vect('GIS/mulch_study_watersheds.shp') %>%
 #   terra::project(., 'EPSG:26913')
-# 
+#
 # #cpf polygon
 # cpf <- vect('GIS/cameron_boundary.shp') %>%
 #   terra::project(., 'EPSG:26913')
 
 # CODE BELOW IS OLD
 # #crs(r) == crs(cpf)
-# 
+#
 # #crop raster to cpf
 # crop <- terra::crop(r, ext(cpf))
-# 
+#
 # names(crop) <- 'p_mmhr'
-# 
+#
 # #only converting this to raster layer and SP  df for mapview
 # #ben1 <- as(ben, "Spatial")
 # #crop1 <- raster(crop)
-# 
-# #mapview(ben1) + mapview(crop1) 
-# 
+#
+# #mapview(ben1) + mapview(crop1)
+#
 # #extract using terra bc it has more functions :)
 # extract <- terra::extract(crop, ben, fun = mean, touches = T, exact = T)
 # extract$name <- ben$ID
-# 
+#
 # extract
 # 
 # filename <- 'RadarOnly_QPE_01H_00.00_20220716-000000.grib2'
@@ -169,11 +169,13 @@ tip <- read_csv('bennett_rain_TB.csv') %>%
 mrms21 <- read_csv('mrms_21.csv') %>%
   dplyr::select(-c(...1, ID)) %>%
   rename(site = name) %>%
-  mutate(site = tolower(site))
+  mutate(site = tolower(site)) %>%
+  mutate(datetime  = datetime - (1 * 60 * 60))
 
 mrms22 <- read_csv('mrms_22.csv') %>%
   rename(site = name) %>%
-  mutate(site = tolower(site))
+  mutate(site = tolower(site)) %>%
+  mutate(datetime  = datetime - (1 * 60 * 60))
 
 mrms <- bind_rows(mrms21, mrms22) %>%
   mutate(source = 'mrms')
@@ -222,15 +224,54 @@ compare <- left_join(tip, mrms, by = c('datetime', 'site')) %>%
 ggplot(compare, aes(tb_rain_mm, mrms_rain_mm)) + 
   geom_point() +
   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
-  facet_wrap(~site, scales = 'free') 
+  facet_wrap(~site, scales = 'free') +
+  ggtitle('1:1 TB vs MRMS when there are TB events')
 
-compare22 <- filter(compare, year == 2022)
+#cum sum of when there is tb tips
+compare <- compare %>%
+  arrange(datetime) %>%
+  group_by(year, site) %>% 
+  mutate(cum_tb_mm = cumsum(tb_rain_mm),
+         cum_mrms_mm = cumsum(replace_na(mrms_rain_mm, 0)))
 
-ggplot(compare22, aes(tb_rain_mm, mrms_rain_mm)) + 
+ggplot(compare, aes(x=datetime)) + 
+  geom_line(aes(y=cum_tb_mm, color ='TB')) +
+  geom_line(aes(y=cum_mrms_mm, color = 'MRMS')) +
+  scale_x_datetime(date_labels = '%b', breaks = '1 month') +
+  scale_color_manual(name="Source", values=c('TB' = 'orange',
+                                            'MRMS'="purple")) +
+  facet_wrap(~site + year, scales = 'free') +
+  ggtitle('Cumulative sums when TB has events')
+
+#shift tb then compare
+tip_shift <- tip %>%
+  mutate(datetime = datetime + (1*60*60)) #just testing a theory
+
+#compare when there are tb events to MRMS with a 1hr tb shift
+compare_tbshift <- left_join(tip_shift, mrms, by = c('datetime', 'site')) %>%
+  mutate(year = year(datetime)) %>%
+  rename(tb_rain_mm = p_mmhr.x,
+         mrms_rain_mm = p_mmhr.y) %>% 
+  arrange(datetime) %>%
+  group_by(year, site) %>% 
+  mutate(cum_tb_mm = cumsum(tb_rain_mm),
+         cum_mrms_mm = cumsum(replace_na(mrms_rain_mm, 0)))
+
+ggplot(compare_tbshift, aes(tb_rain_mm, mrms_rain_mm)) + 
   geom_point() +
   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
   facet_wrap(~site, scales = 'free') +
-  ggtitle('2022')
+  ggtitle('1:1 w/ TB shift')
+
+ggplot(compare_tbshift, aes(x=datetime)) + 
+  geom_line(aes(y=cum_tb_mm, color ='TB')) +
+  geom_line(aes(y=cum_mrms_mm, color = 'MRMS')) +
+  scale_x_datetime(date_labels = '%b', breaks = '1 month') +
+  scale_color_manual(name="Source", values=c('TB' = 'orange',
+                                            'MRMS'="purple")) +
+  facet_wrap(~site + year, scales = 'free') +
+  ggtitle('Cumulative sum when TB has events w/ a 1 hr tb shift')
+
 
 # compare_full <- right_join(tip, mrms, by = c('datetime', 'site'))
 # 
@@ -340,14 +381,14 @@ ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
 grid.arrange(event3_line, event3_cum, nrow = 1)
 
 #event 4
-event1 <- all %>%
+event4 <- all %>%
   filter(between(datetime, ymd_hms('2021-08-03 09:00:00'),
                  ymd_hms('2021-08-03 20:00:00'))) %>%
   filter(site == 'uw') %>%
   group_by(source) %>%
   mutate(cum_rain_mm = cumsum(p_mmhr))
   
-event1_line <- event1 %>%
+event4_line <- event4 %>%
 ggplot(aes(datetime, p_mmhr, color = source, shape = source),
        size = 6) +
   geom_line() +
@@ -357,7 +398,7 @@ ggplot(aes(datetime, p_mmhr, color = source, shape = source),
   labs(x = 'Time',
        y = 'Rain (mm/hr)')
 
-event1_cum <- event1 %>%
+event4_cum <- event4 %>%
 ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
        size = 6) +
   geom_line() +
@@ -366,13 +407,247 @@ ggplot(aes(datetime, cum_rain_mm, color = source, shape = source),
   labs(x = 'Time',
        y = 'Cumulative rain (mm/hr)')
 
-grid.arrange(event1_line, event1_cum, nrow = 1)
+grid.arrange(event4_line, event4_cum, nrow = 1)
 
 
 ```
 
+# MRMS spatial patterns for above example events
 
+```{r spatial examples}
+#bennett polygons - only bring in once
+# ben <- vect('GIS/mulch_study_watersheds.shp') %>%
+#    terra::project(., 'EPSG:26913')
+# 
+# ben1 <- as(ben, "Spatial")
+#  
+# #cpf polygon - only  bring in once
+# cpf <- vect('GIS/cameron_boundary.shp') %>%
+#    terra::project(., 'EPSG:26913')
+# ##############################################
+# #event 1 from above 
+# #pull in an example raster -- add 7 hrs
+# r <- rast('E:/MRMS_2022/RadarOnly_QPE_01H_00.00_20220816-030000.grib2') %>%
+#   terra::project(., 'EPSG:26913')
+# 
+# #crop raster to cpf
+# crop <- terra::crop(r, ext(cpf))
+#  
+# names(crop) <- 'p_mmhr'
+# 
+# #crop1 <- raster(crop) #only doing this for mapview purposes
+# 
+# #mapview(ben1) + mapview(crop1)
+# 
+# #extract using terra bc it has more functions :)
+# extract1_20 <- terra::extract(crop, ben, touches = T, exact = T) %>%
+#   filter(ID == 1) %>%
+#   mutate(datetime = '2022-08-15 20:00')
+# 
+# extract1_11 <- extract1_11 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_12 <- extract1_12 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_13 <- extract1_13 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_14 <- extract1_14 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_15 <- extract1_15 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_16 <- extract1_16 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_17 <- extract1_17 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_18 <- extract1_18 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_19 <- extract1_19 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1_20 <- extract1_20 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'me',
+#          source = paste0('mrms',1:5))
+# 
+# extract1 <- bind_rows(extract1_11, extract1_12,
+#                       extract1_13,extract1_14,
+#                       extract1_15,extract1_16,
+#                       extract1_17,extract1_18,
+#                       extract1_19,extract1_20) %>%
+#   dplyr::select(-fraction) %>%
+#   mutate(datetime = ymd_hm(datetime))
 
+load('event1_spatial.Rdata')
+
+event1_spatial %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
+  geom_line(size = 0.75) +
+  geom_point(size = 4) +
+  ggtitle('ME event: 2022-08-15 11:00 to 20:00') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)') +
+  scale_color_brewer(palette = "Dark2") +
+  scale_x_datetime(breaks = '1 hour', date_labels = "%l %p")
+
+#shift tb by an hour
+event1_spatial_tbshift <- event1_spatial %>%
+  mutate(datetime = if_else(source == 'tb', datetime + (1*60*60),
+                          datetime)) #just testing a theory
+
+event1_spatial_tbshift %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
+  geom_line(size = 0.75) +
+  geom_point(size = 4) +
+  ggtitle('ME event: 2022-08-15 11:00 to 20:00 w/ TB shift') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)') +
+  scale_color_brewer(palette = "Dark2") +
+  scale_x_datetime(breaks = '1 hour', date_labels = "%l %p")
+
+#######################################################################
+
+#TIME FOR EVENT 2
+#pull in an example raster -- add 7 hrs
+# r <- rast('E:/MRMS_2022/RadarOnly_QPE_01H_00.00_20220716-080000.grib2') %>%
+#   terra::project(., 'EPSG:26913')
+# 
+# #crop raster to cpf
+# crop <- terra::crop(r, ext(cpf))
+#  
+# names(crop) <- 'p_mmhr'
+# 
+# #extract using terra bc it has more functions :)
+# extract2_01 <- terra::extract(crop, ben, touches = T, exact = T) %>%
+#   filter(ID == 4) %>%
+#   mutate(datetime = '2022-07-16 01:00')
+# 
+# extract2_15 <- extract2_15 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4))
+# 
+# extract2_16 <- extract2_16 %>%
+#   rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4))
+# 
+# extract2_17 <- extract2_17 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 17:00') 
+# 
+# extract2_18 <- extract2_18 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 18:00') 
+# 
+# extract2_19 <- extract2_19 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 19:00') 
+# 
+# extract2_20 <- extract2_20 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 20:00') 
+# 
+# extract2_21 <- extract2_21 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 21:00') 
+# 
+# extract2_22 <- extract2_22 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 22:00') 
+# 
+# extract2_23 <- extract2_23 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4),
+#          datetime = '2022-07-15 23:00') 
+# 
+# extract2_00 <- extract2_00 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4))
+# 
+# extract2_01 <- extract2_01 %>%
+#   #rename(site = ID) %>%
+#   mutate(site = 'ue',
+#          source = paste0('mrms',1:4))
+# 
+# extract2 <- bind_rows(extract2_15, extract2_16,
+#                       extract2_17,extract2_18,
+#                       extract2_19,extract2_20,
+#                       extract2_21,extract2_22,
+#                       extract2_23,extract2_00,
+#                       extract2_01) %>%
+#   dplyr::select(-fraction) %>%
+#   mutate(datetime = ymd_hm(datetime))
+
+load('event2_spatial.Rdata')
+
+event2_spatial %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
+  geom_line(size = 0.75) +
+  geom_point(size = 4) +
+  ggtitle('UE event: 2022-07-15 15:00 to 07-16 01:00') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)') +
+  scale_color_brewer(palette = "Dark2") +
+  scale_x_datetime(breaks = '1 hour', date_labels = "%l %p")
+
+event2_spatial_tbshift <- event2_spatial %>%
+  mutate(datetime = if_else(source == 'tb', datetime + (1*60*60),
+                           datetime)) #just testing a theory
+  
+event2_spatial_tbshift %>%
+ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
+  geom_line(size = 0.75) +
+  geom_point(size = 4) +
+  ggtitle('UE event: 2022-07-15 15:00 to 07-16 01:00 w/ TB shift') +
+  theme_bw() +
+  labs(x = 'Time',
+       y = 'Rain (mm/hr)') +
+  scale_color_brewer(palette = "Dark2") +
+  scale_x_datetime(breaks = '1 hour', date_labels = "%l %p")
+
+```
 
 # MRMS MI60
 
