@@ -29,7 +29,10 @@ library(tmap)
 library(readr)
 library(gridExtra)
 library(ggplot2); theme_set(theme_bw(base_size = 16))
-
+library(here)
+library(irr)
+library(plotly)
+library(kableExtra)
 
 ```
 
@@ -170,12 +173,12 @@ mrms21 <- read_csv('mrms_21.csv') %>%
   dplyr::select(-c(...1, ID)) %>%
   rename(site = name) %>%
   mutate(site = tolower(site)) %>%
-  mutate(datetime  = datetime - (1 * 60 * 60))
+  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1
 
 mrms22 <- read_csv('mrms_22.csv') %>%
   rename(site = name) %>%
   mutate(site = tolower(site)) %>%
-  mutate(datetime  = datetime - (1 * 60 * 60))
+  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1
 
 mrms <- bind_rows(mrms21, mrms22) %>%
   mutate(source = 'mrms')
@@ -187,6 +190,17 @@ all <- bind_rows(mrms, tip) %>%
   mutate(cump = cumsum(p_mmhr)) %>%
   ungroup() %>%
   arrange(datetime)
+
+# ggplotly to find events where there are MRMS and not TB
+{all %>%
+  filter(site == 'ue',
+         year == 2022) %>%
+  ggplot(aes(datetime, p_mmhr, color = source)) + 
+  geom_line() +
+  geom_point(size = 1.5) +
+  labs(x = 'Date',
+       y = 'p_mmhr')} %>%
+  ggplotly()
 
 #2021
 all21 <- filter(all, year == 2021)
@@ -243,34 +257,34 @@ ggplot(compare, aes(x=datetime)) +
   facet_wrap(~site + year, scales = 'free') +
   ggtitle('Cumulative sums when TB has events')
 
-#shift tb then compare
-tip_shift <- tip %>%
-  mutate(datetime = datetime + (1*60*60)) #just testing a theory
-
-#compare when there are tb events to MRMS with a 1hr tb shift
-compare_tbshift <- left_join(tip_shift, mrms, by = c('datetime', 'site')) %>%
-  mutate(year = year(datetime)) %>%
-  rename(tb_rain_mm = p_mmhr.x,
-         mrms_rain_mm = p_mmhr.y) %>% 
-  arrange(datetime) %>%
-  group_by(year, site) %>% 
-  mutate(cum_tb_mm = cumsum(tb_rain_mm),
-         cum_mrms_mm = cumsum(replace_na(mrms_rain_mm, 0)))
-
-ggplot(compare_tbshift, aes(tb_rain_mm, mrms_rain_mm)) + 
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1, size=1, color='red') +
-  facet_wrap(~site, scales = 'free') +
-  ggtitle('1:1 w/ TB shift')
-
-ggplot(compare_tbshift, aes(x=datetime)) + 
-  geom_line(aes(y=cum_tb_mm, color ='TB')) +
-  geom_line(aes(y=cum_mrms_mm, color = 'MRMS')) +
-  scale_x_datetime(date_labels = '%b', breaks = '1 month') +
-  scale_color_manual(name="Source", values=c('TB' = 'orange',
-                                            'MRMS'="purple")) +
-  facet_wrap(~site + year, scales = 'free') +
-  ggtitle('Cumulative sum when TB has events w/ a 1 hr tb shift')
+# #shift tb then compare
+# tip_shift <- tip %>%
+#   mutate(datetime = datetime + (1*60*60)) #just testing a theory
+# 
+# #compare when there are tb events to MRMS with a 1hr tb shift
+# compare_tbshift <- left_join(tip_shift, mrms, by = c('datetime', 'site')) %>%
+#   mutate(year = year(datetime)) %>%
+#   rename(tb_rain_mm = p_mmhr.x,
+#          mrms_rain_mm = p_mmhr.y) %>% 
+#   arrange(datetime) %>%
+#   group_by(year, site) %>% 
+#   mutate(cum_tb_mm = cumsum(tb_rain_mm),
+#          cum_mrms_mm = cumsum(replace_na(mrms_rain_mm, 0)))
+# 
+# ggplot(compare_tbshift, aes(tb_rain_mm, mrms_rain_mm)) + 
+#   geom_point() +
+#   geom_abline(intercept = 0, slope = 1, size=1, color='red') +
+#   facet_wrap(~site, scales = 'free') +
+#   ggtitle('1:1 w/ TB shift')
+# 
+# ggplot(compare_tbshift, aes(x=datetime)) + 
+#   geom_line(aes(y=cum_tb_mm, color ='TB')) +
+#   geom_line(aes(y=cum_mrms_mm, color = 'MRMS')) +
+#   scale_x_datetime(date_labels = '%b', breaks = '1 month') +
+#   scale_color_manual(name="Source", values=c('TB' = 'orange',
+#                                             'MRMS'="purple")) +
+#   facet_wrap(~site + year, scales = 'free') +
+#   ggtitle('Cumulative sum when TB has events w/ a 1 hr tb shift')
 
 
 # compare_full <- right_join(tip, mrms, by = c('datetime', 'site'))
@@ -502,7 +516,8 @@ grid.arrange(event4_line, event4_cum, nrow = 1)
 #   dplyr::select(-fraction) %>%
 #   mutate(datetime = ymd_hm(datetime))
 
-load('event1_spatial.Rdata')
+## notice this data does not include the shift that is ALREADY included above
+load('event1_spatial.Rdata') 
 
 event1_spatial %>%
 ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
@@ -619,6 +634,7 @@ ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
 #   dplyr::select(-fraction) %>%
 #   mutate(datetime = ymd_hm(datetime))
 
+## notice this data does not include the shift that is ALREADY included above
 load('event2_spatial.Rdata')
 
 event2_spatial %>%
@@ -668,8 +684,11 @@ mrms_prep <- mrms %>%
 mrms_intens <- get_setup(mrms_prep, mrms_prep$datetime) %>%
   group_by(event, site) %>%
   summarize(MI60 = max(p_mmhr),
+            P = sum(p_mmhr),
+            event = mean(event),
              duration = max(datetime) - min(datetime),
-             end_time = max(datetime)) %>%
+             endtime = max(datetime),
+            starttime = min(datetime)) %>%
   mutate(duration_hr = as.numeric(duration/60/60))
 
 return(mrms_intens)
@@ -679,18 +698,19 @@ return(mrms_intens)
 mrms_mi60 <- site_id %>%
   map(~ get_radar_intens(site_id = .)) %>%
   bind_rows() %>%
-  mutate(year = year(end_time))
+  mutate(year = year(endtime)) %>%
+  filter(P > 1)
 
 mrms_mi60 %>%
   filter(year == 2021) %>% 
-ggplot(aes(end_time, MI60)) +
+ggplot(aes(endtime, MI60)) +
   geom_point() +
   facet_wrap(~site) +
   ggtitle('MRMS 2021')
 
 mrms_mi60 %>%
   filter(year == 2022) %>% 
-ggplot(aes(end_time, MI60)) +
+ggplot(aes(endtime, MI60)) +
   geom_point() +
   facet_wrap(~site) +
   ggtitle('MRMS 2022')
@@ -701,33 +721,351 @@ ggplot(aes(end_time, MI60)) +
 
 ```{r compare MI60s}
 #read in tb events
-tb_mi60 <- read_csv("tb_events.csv") %>%
-  mutate(source = 'tb',
-         year = year(endtime)) %>%
-  rename(end_time = endtime) %>%
-  dplyr::select(MI60, end_time, Site, duration_hr, source, year) %>%
-  rename(site = Site)
-
-mrms_mi60 <- mrms_mi60 %>%
-  mutate(source = 'mrms') %>%
-  ungroup() %>% 
-  dplyr::select(MI60, end_time, site, duration_hr, source, year)
-
-
-comp_mi60 <- bind_rows(tb_mi60, mrms_mi60)
-
-comp_mi60 %>%
-  filter(year == 2021) %>% 
-ggplot(aes(end_time, MI60, color = source, shape = source)) +
-  geom_point() +
-  facet_wrap(~site) +
-  ggtitle('2021')
-
-comp_mi60 %>%
-  filter(year == 2022) %>% 
-ggplot(aes(end_time, MI60, color = source, shape = source)) +
-  geom_point() +
-  facet_wrap(~site) +
-  ggtitle('2022')
+# tb_mi60 <- read_csv("tb_events.csv") %>%
+#   mutate(source = 'tb',
+#          year = year(endtime)) %>%
+#   rename(end_time = endtime) %>%
+#   dplyr::select(MI60, end_time, Site, duration_hr, source, year) %>%
+#   rename(site = Site)
+# 
+# mrms_mi60 <- mrms_mi60 %>%
+#   mutate(source = 'mrms') %>%
+#   ungroup() %>% 
+#   dplyr::select(MI60, endtime, site, duration_hr, source, year) %>%
+#   rename(end_time = endtime)
+# 
+# comp_mi60 <- bind_rows(tb_mi60, mrms_mi60)
+# 
+# comp_mi60 %>%
+#   filter(year == 2021) %>% 
+# ggplot(aes(end_time, MI60, color = source, shape = source)) +
+#   geom_point() +
+#   facet_wrap(~site) +
+#   ggtitle('2021')
+# 
+# comp_mi60 %>%
+#   filter(year == 2022) %>% 
+# ggplot(aes(end_time, MI60, color = source, shape = source)) +
+#   geom_point() +
+#   facet_wrap(~site) +
+#   ggtitle('2022')
 
 ```
+
+# MRMS response
+
+```{r MRMS stage response, echo = F}
+
+#get all stage data
+load('stage.Rdata')
+
+#tweak stage response function
+get_radar_stage_resp <- function(events_df, stage_df) {
+  
+  response <- data.frame()
+  
+  for(i in 1:nrow(events_df)){
+    temp <- stage_df %>%
+      filter(datetime >=(events_df$starttime[i]) 
+             & datetime <=(events_df$endtime[i] + 12*60*60))
+    
+    temp$event = ifelse(temp$datetime >=(events_df$starttime[i]) 
+                        & temp$datetime <=(events_df$endtime[i] + 12*60*60),
+                        events_df$event[i])
+    
+    temp$duration_hr = ifelse(temp$datetime >=(events_df$starttime[i]) 
+                              & temp$datetime <=(events_df$endtime[i] + 12*60*60),
+                              events_df$duration_hr[i])
+    
+    temp$P = ifelse(temp$datetime >=(events_df$starttime[i]) 
+                    & temp$datetime <=(events_df$endtime[i] + 12*60*60),
+                    events_df$P[i])
+    
+    temp$MI60 = ifelse(temp$datetime >=(events_df$starttime[i]) 
+                       & temp$datetime <=(events_df$endtime[i] + 12*60*60),
+                       events_df$MI60[i])
+    
+    temp$starttime = ifelse(temp$datetime >=(events_df$starttime[i]) 
+                            & temp$datetime <=(events_df$endtime[i] + 12*60*60),
+                            events_df$starttime[i])
+    
+    temp$endtime = ifelse(temp$datetime >=(events_df$starttime[i]) 
+                          & temp$datetime <=(events_df$endtime[i] + 12*60*60),
+                          events_df$endtime[i])
+    
+    response <- rbind(response, temp)
+  }
+  
+  out <- response %>%
+    group_by(event) %>%
+    mutate(Stage_range = max(Stage_mm) - min(Stage_mm)) %>%
+    group_by(event) %>%
+    filter(Stage_mm == max(Stage_mm)) %>%
+    rename(Stage_mm_max = Stage_mm) %>% 
+    group_by(event) %>%
+    filter(datetime == max(datetime)) %>%
+    rename(datetime_maxstage = datetime) %>%
+    mutate(starttime_rain = as_datetime(starttime),
+           endtime_rain = as_datetime(endtime),
+           lag2p_hr = as.numeric(datetime_maxstage - starttime_rain)) %>%
+    filter(!duration_hr == 0) %>%
+    mutate(response = ifelse(Stage_range > 2, 1, 0)) %>% 
+    dplyr::select(-c(starttime, endtime))
+  
+}
+
+
+#break out mimrs_mi60 by site
+me_events <- mrms_mi60 %>%
+  filter(site == 'me')
+
+mm_events <- mrms_mi60 %>%
+  filter(site == 'mm')
+
+mw_events <- mrms_mi60 %>%
+  filter(site == 'mw')
+
+ue_events <- mrms_mi60 %>%
+  filter(site == 'ue')
+
+um_events <- mrms_mi60 %>%
+  filter(site == 'um')
+
+uw_events <- mrms_mi60 %>%
+  filter(site == 'uw')
+
+#now get stage response for each site
+me_response <- get_radar_stage_resp(me_events, me_stage)
+mm_response <- get_radar_stage_resp(mm_events, mm_stage)
+mw_response <- get_radar_stage_resp(mw_events, mw_stage)
+ue_response <- get_radar_stage_resp(ue_events, ue_stage)
+um_response <- get_radar_stage_resp(um_events, um_stage) 
+uw_response <- get_radar_stage_resp(uw_events, uw_stage)
+
+mrms_response <- bind_rows(me_response, mm_response,
+                           mw_response, ue_response,
+                           um_response, uw_response)
+
+
+ggplot(mrms_response, aes(site, Stage_range)) +
+  geom_boxplot()
+
+ggplot(mrms_response, aes(site, MI60)) +
+  geom_boxplot()
+
+#response summary
+response_summary <- mrms_response %>%
+  ungroup() %>% 
+  dplyr::select(c(site, P, MI60,
+                  Stage_mm_max, Stage_range, lag2p_hr, response)) %>%
+  group_by(site) %>%
+  summarize(Total_events = n(),
+            Percent_response = (sum(response)/Total_events)*100,
+            Max_P_mm = max(P),
+            Mean_P_mm = mean(P),
+            Max_MI60 = max(MI60),
+            Mean_MI60 = mean(MI60),
+            Max_Stage_Response_cm = max(Stage_range)/10,
+            Mean_Stage_response_cm = mean(Stage_range)/10) %>%
+  mutate_if(is.numeric,
+            round,
+            digits = 2)
+
+kable(response_summary) %>%
+  kable_styling()
+
+#note, stage is mm 
+
+```
+
+# MRMS correlations
+
+```{r cor}
+
+# me correlations
+me_cor <- me_response %>%
+  ungroup() %>% 
+  dplyr::select(duration_hr, P, MI60) %>%
+  cor()
+
+# mm correlations
+mm_cor <- mm_response %>%
+  ungroup() %>% 
+  dplyr::select(duration_hr, P, MI60) %>%
+  cor()
+mm_cor
+
+# mw correlations
+mw_cor <- mw_response %>%
+  ungroup() %>% 
+  dplyr::select(duration_hr, P, MI60) %>%
+  cor()
+
+mw_cor
+
+# ue correlations
+ue_cor <- ue_response %>%
+  ungroup() %>% 
+  dplyr::select(duration_hr, P, MI60) %>%
+  cor()
+ue_cor
+
+# um correlations
+um_cor <- um_response %>%
+  ungroup() %>% 
+  dplyr::select(duration_hr, P, MI60) %>%
+  cor()
+um_cor
+
+# uw correlations
+uw_cor <- uw_response %>%
+  ungroup() %>% 
+  dplyr::select(duration_hr, P, MI60) %>%
+  cor()
+uw_cor
+
+```
+
+# MRMS logistic regressions
+
+```{r}
+
+ben_q <- read_csv('C:/Users/sears/Documents/Repos/CPF/bennett/larimerco_bennett_Q.csv') %>%
+  rename(datetime = DateTime) %>%
+  mutate(datetime = ymd_hm(datetime)) %>% 
+  mutate(q_cms = q_cfs*0.028)
+
+ben_q <- ben_q %>%
+  rename(floor_dt = datetime)
+
+#me 
+me_response2 <- me_response %>%
+  mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
+    
+me_response2 <- left_join(me_response2, ben_q, by = 'floor_dt') %>%
+  mutate(doy = yday(floor_dt))
+
+me_glm <- glm(response ~ q_cms + doy + duration_hr, data = me_response2, family = binomial)
+
+me_response2$pred <- predict(me_glm, me_response2, type = 'response')
+
+me_response3 <- me_response2 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction)
+
+me_kappa <- kappa2(me_response3)
+me_kappa$value
+
+#mm
+mm_response2 <- mm_response %>%
+  mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
+    
+mm_response2 <- left_join(mm_response2, ben_q, by = 'floor_dt') %>%
+  mutate(doy = yday(floor_dt))
+
+mm_glm <- glm(response ~ q_cms + doy + duration_hr, data = mm_response2, family = binomial)
+
+mm_response2$pred <- predict(mm_glm, mm_response2, type = 'response')
+
+mm_response3 <- mm_response2 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction)
+
+mm_kappa <- kappa2(mm_response3)
+mm_kappa$value
+
+#mw
+mw_response2 <- mw_response %>%
+  mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
+    
+mw_response2 <- left_join(mw_response2, ben_q, by = 'floor_dt') %>%
+  mutate(doy = yday(floor_dt))
+
+mw_glm <- glm(response ~ q_cms + doy + duration_hr, data = mw_response2, family = binomial)
+
+mw_response2$pred <- predict(mw_glm, mw_response2, type = 'response')
+
+mw_response3 <- mw_response2 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction)
+
+mw_kappa <- kappa2(mw_response3)
+mw_kappa$value
+
+#ue
+ue_response2 <- ue_response %>%
+  mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
+    
+ue_response2 <- left_join(ue_response2, ben_q, by = 'floor_dt') %>%
+  mutate(doy = yday(floor_dt))
+
+ue_glm <- glm(response ~ q_cms + doy + duration_hr, data = ue_response2, family = binomial)
+
+ue_response2$pred <- predict(ue_glm, ue_response2, type = 'response')
+
+ue_response3 <- ue_response2 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction)
+
+ue_kappa <- kappa2(ue_response3)
+ue_kappa$value
+
+#um
+um_response2 <- um_response %>%
+  mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
+    
+um_response2 <- left_join(um_response2, ben_q, by = 'floor_dt') %>%
+  mutate(doy = yday(floor_dt))
+
+um_glm <- glm(response ~ q_cms + doy + duration_hr, data = um_response2, family = binomial)
+
+um_response2$pred <- predict(um_glm, um_response2, type = 'response')
+
+um_response3 <- um_response2 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction)
+
+um_kappa <- kappa2(um_response3)
+um_kappa$value
+
+#uw
+uw_response2 <- uw_response %>%
+  mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
+    
+uw_response2 <- left_join(uw_response2, ben_q, by = 'floor_dt') %>%
+  mutate(doy = yday(floor_dt))
+
+uw_glm <- glm(response ~ q_cms + doy + duration_hr, data = uw_response2, family = binomial)
+
+uw_response2$pred <- predict(uw_glm, uw_response2, type = 'response')
+
+uw_response3 <- uw_response2 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction)
+
+uw_kappa <- kappa2(uw_response3)
+uw_kappa$value
+
+## make a df for this
+first <- c('me', 'mm', 'mw',
+           'ue', 'um', 'uw')
+second <- c(me_kappa$value, mm_kappa$value, mw_kappa$value,
+            ue_kappa$value, um_kappa$value, uw_kappa$value)
+
+log_kappas <- data.frame(first,second) %>%
+  rename(site = first,
+         kappa = second)
+
+kable(log_kappas) %>%
+  kable_styling()
+
+
+
+```
+
