@@ -491,7 +491,8 @@ kable(log_kappas) %>%
 
 # Next steps
 
-* For sites with higher kappa value, determine rain intensity threshold
+* Continue developing logistic regression model (e.g., different models scenarios for TB and MRMS)
+* Determine rain intensity thresholds
 * Run comparison of stage change between sites (stage vs. intensity)
 * Attributes of watersheds (slope, area, bedrock geology)
 * Apply this workflow to East Troublesome
