@@ -460,7 +460,8 @@ uw_response2 <- uw_response %>%
 uw_response2 <- left_join(uw_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-uw_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = uw_response2, family = binomial)
+uw_glm <- glm(response ~ q_cms + doy, data = uw_response2, family = binomial)
+summary(uw_glm)
 
 uw_response2$pred <- predict(uw_glm, uw_response2, type = 'response')
 

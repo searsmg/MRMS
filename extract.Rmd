@@ -224,6 +224,29 @@ ggplot(all22, aes(datetime, cump, color = source)) +
 
 ```
 
+# Comparing daily TB and MRMS
+
+```{r compare daily}
+
+all_daily <- all %>%
+  mutate(date = as.Date(datetime)) %>%
+  group_by(date, site, source) %>%
+  summarize(p_mmday = sum(p_mmhr)) %>%
+  ungroup() %>% 
+  pivot_wider(id_cols = c(date, site), names_from = 'source', values_from = 'p_mmday')
+
+daily_filter <- all_daily %>%
+  mutate(check = if_else(mrms > 1 & is.na(tb), 1, 0)) %>%
+  filter(check == 1,
+         date > '2021-07-19') %>%
+  group_by(date) %>%
+  mutate(sitecheck = sum(check)) %>%
+  filter(sitecheck == 6)
+
+
+```
+
+
 # 1:1 for TB vs. MRMS
 
 These data represent when the tipping bucket had a record.
@@ -945,7 +968,7 @@ me_response2 <- me_response %>%
 me_response2 <- left_join(me_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-me_glm <- glm(response ~ q_cms + doy + duration_hr, data = me_response2, family = binomial)
+me_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = me_response2, family = binomial)
 
 me_response2$pred <- predict(me_glm, me_response2, type = 'response')
 
@@ -964,7 +987,7 @@ mm_response2 <- mm_response %>%
 mm_response2 <- left_join(mm_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-mm_glm <- glm(response ~ q_cms + doy + duration_hr, data = mm_response2, family = binomial)
+mm_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = mm_response2, family = binomial)
 
 mm_response2$pred <- predict(mm_glm, mm_response2, type = 'response')
 
@@ -983,7 +1006,7 @@ mw_response2 <- mw_response %>%
 mw_response2 <- left_join(mw_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-mw_glm <- glm(response ~ q_cms + doy + duration_hr, data = mw_response2, family = binomial)
+mw_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = mw_response2, family = binomial)
 
 mw_response2$pred <- predict(mw_glm, mw_response2, type = 'response')
 
@@ -1002,7 +1025,7 @@ ue_response2 <- ue_response %>%
 ue_response2 <- left_join(ue_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-ue_glm <- glm(response ~ q_cms + doy + duration_hr, data = ue_response2, family = binomial)
+ue_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = ue_response2, family = binomial)
 
 ue_response2$pred <- predict(ue_glm, ue_response2, type = 'response')
 
@@ -1021,7 +1044,7 @@ um_response2 <- um_response %>%
 um_response2 <- left_join(um_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-um_glm <- glm(response ~ q_cms + doy + duration_hr, data = um_response2, family = binomial)
+um_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = um_response2, family = binomial)
 
 um_response2$pred <- predict(um_glm, um_response2, type = 'response')
 
@@ -1040,7 +1063,7 @@ uw_response2 <- uw_response %>%
 uw_response2 <- left_join(uw_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-uw_glm <- glm(response ~ q_cms + doy + duration_hr, data = uw_response2, family = binomial)
+uw_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = uw_response2, family = binomial)
 
 uw_response2$pred <- predict(uw_glm, uw_response2, type = 'response')
 
