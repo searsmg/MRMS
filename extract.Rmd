@@ -33,6 +33,7 @@ library(here)
 library(irr)
 library(plotly)
 library(kableExtra)
+library(tmap)
 
 ```
 
@@ -173,12 +174,12 @@ mrms21 <- read_csv('mrms_21.csv') %>%
   dplyr::select(-c(...1, ID)) %>%
   rename(site = name) %>%
   mutate(site = tolower(site)) %>%
-  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1
+  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1, figure out time correction
 
 mrms22 <- read_csv('mrms_22.csv') %>%
   rename(site = name) %>%
   mutate(site = tolower(site)) %>%
-  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1
+  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1, figure out time correction
 
 mrms <- bind_rows(mrms21, mrms22) %>%
   mutate(source = 'mrms')
@@ -227,7 +228,6 @@ ggplot(all22, aes(datetime, cump, color = source)) +
 # Comparing daily TB and MRMS
 
 ```{r compare daily}
-
 all_daily <- all %>%
   mutate(date = as.Date(datetime)) %>%
   group_by(date, site, source) %>%
@@ -242,9 +242,278 @@ daily_filter <- all_daily %>%
   group_by(date) %>%
   mutate(sitecheck = sum(check)) %>%
   filter(sitecheck == 6)
+```
+
+In summary, there are 18 total instances where there is MRMS data recorded in a day, but no tipping bucket data. For each of those instances, I pulled the stage response to see if there was a response and at what sites. There was no case where there was MRMS rainfall in a day with no stage response at one or more of the sites. For each of the dates listed above, if a site is not listed, then it either did not respond to the MRMS rain or rain amount was 0 or <1. 
+
+2021-7-22: response of 3   at uw 
+
+2021-8-14: response of 3-30   at uw, me (30 here), ue 
+
+2021-10-27: response of 7 & 44   at uw and um, respectively 
+
+2022-5-1: response of 3-16   at mm, mw, um 
+
+2022-5-2: same as above (storm stretches from May 1 to May 2) 
+
+2022-5-3: response of 5-24   at mw, um, mm, ue  
+
+2022-5-4: same as above (storm stretches from May 3 to May 4) 
+
+2022-5-17: response of 3 and 18   for uw and me, respectively 
+
+2022-6-3: response of 3-16   me, mm, and uw 
+
+2022-6-14: response of 5-24   at me, mm, ue 
+
+2022-6-27: response of 3-15   at me, mm, ue, up 
+
+2022-7-30: response of 7-19   at ue, um, uw 
+
+2022-7-31: response of 3-39   at all sites 
+
+2022-8-12: response of 5-32   at me, mw, ue, um, uw 
+
+2022-8-23: response of 3-37   at mm, mw, ue, um, uw 
+
+2022-10-23: response of 10-22 at ue and um (some cap rods had already been downloaded for season) 
+
+2022-10-26: response of 5-13 at ue and um (some cap rods had already been downloaded for season) 
+
+2022-10-27: (after all cap rods had been downloaded for the season) 
+
+# MRMS spatial pattern for events when no TB was recorded
+
+```{r more mrms spatial}
+
+# bennett polygons - only bring in once
+ben <- vect('GIS/mulch_study_watersheds.shp') %>%
+   terra::project(., 'EPSG:26913')
+
+ben1 <- as(ben, "Spatial")
+
+#cpf polygon - only  bring in once
+cpf <- vect('GIS/cameron_boundary.shp') %>%
+   terra::project(., 'EPSG:26913')
+
+sensors <- read_csv('GIS/benn_sensors.csv') %>%
+  st_as_sf(coords = c('x', 'y'), crs = 4326)
+
+ben_bound <- st_bbox(ben1)
+
+# ##############################################
+# 2022-08-23 event
+#pull in an example raster -- add 7 hrs
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220823-220000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop <- terra::crop(r, ext(cpf))
+
+names(crop) <- 'p_mmhr'
+
+crop1 <- raster(crop) #only doing this for mapview purpose
+
+tmap_mode('view')
+aug23_22_13 <- tm_shape(crop1, bbox=ben_bound) +
+  tm_raster(breaks = c(0,0.5,1,2.5,5,7.5,10),
+            palette = "Set2") +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-08-23 @ 13:00',
+              legend.outside = T)
+
+# 2022-08-23 14:00
+#pull in an example raster -- add 7 hrs
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220823-230000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop2 <- terra::crop(r, ext(cpf))
+
+names(crop2) <- 'p_mmhr'
+
+crop2 <- raster(crop2) #only doing this for mapview purpose
+
+
+aug23_22_14 <- tm_shape(crop2, bbox=ben_bound) +
+  tm_raster(breaks = c(0,0.5,2.5,5,7.5,10),
+            palette = "Set2") +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-08-23 @ 14:00',
+              legend.outside = T)
+
+# 2022-08-23 15:00
+#pull in an example raster -- add 7 hrs
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220824-000000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop3<- terra::crop(r, ext(cpf))
+
+names(crop3) <- 'p_mmhr'
+
+crop3 <- raster(crop3) #only doing this for mapview purpose
+
+
+aug23_22_15 <- tm_shape(crop3, bbox=ben_bound) +
+  tm_raster(breaks = c(0,0.5,2.5,5,7.5,10),
+            palette = "Set2") +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-08-23 @ 15:00',
+              legend.outside = T)
+
+
+# 2022-08-23 16:00
+#pull in an example raster -- add 7 hrs
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220824-010000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop4<- terra::crop(r, ext(cpf))
+
+names(crop4) <- 'p_mmhr'
+
+crop4 <- raster(crop4) #only doing this for mapview purpose
+
+
+aug23_22_16 <- tm_shape(crop4, bbox=ben_bound) +
+  tm_raster(breaks = c(0,0.5,2.5,5,7.5,10),
+            palette = "Set2") +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-08-23 @ 16:00',
+              legend.outside = T)
+
+
+tmap_arrange(aug23_22_13, aug23_22_14, aug23_22_15, aug23_22_16)
+
+# looking at 2022-07-31 from 11:00 to 15:00
+#pull in an example raster -- add 7 hrs
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-180000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop5 <- terra::crop(r, ext(cpf))
+
+names(crop5) <- 'p_mmhr'
+
+crop5 <- raster(crop5) #only doing this for mapview purpose
+
+jul7_22_11 <- tm_shape(crop5, bbox=ben_bound) +
+  tm_raster(palette = "Set2",
+            breaks = c(0,1,2,3,4,5)) +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-07-31 @ 11:00',
+              legend.outside = T)
+
+# 2022-07-31 12:00
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-190000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop6 <- terra::crop(r, ext(cpf))
+
+names(crop6) <- 'p_mmhr'
+
+crop6 <- raster(crop6) #only doing this for mapview purpose
+
+jul7_22_12 <- tm_shape(crop6, bbox=ben_bound) +
+  tm_raster(palette = "Set2",
+            breaks = c(0,1,2,3,4,5)) +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-07-31 @ 12:00',
+              legend.outside = T)
+
+
+# 2022-07-31 13:00
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-200000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop7 <- terra::crop(r, ext(cpf))
+
+names(crop7) <- 'p_mmhr'
+
+crop7 <- raster(crop7) #only doing this for mapview purpose
+
+jul7_22_13 <- tm_shape(crop7, bbox=ben_bound) +
+  tm_raster(palette = "Set2",
+            breaks = c(0,1,2,3,4,5)) +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-07-31 @ 13:00',
+              legend.outside = T)
+
+
+# 2022-07-31 14:00
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-210000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop8 <- terra::crop(r, ext(cpf))
+
+names(crop8) <- 'p_mmhr'
+
+crop8 <- raster(crop8) #only doing this for mapview purpose
+
+jul7_22_14 <- tm_shape(crop8, bbox=ben_bound) +
+  tm_raster(palette = "Set2",
+            breaks = c(0,1,2,3,4,5)) +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-07-31 @ 14:00',
+              legend.outside = T)
+
+
+# 2022-07-31 15:00
+r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-220000.grib2') %>%
+  terra::project(., 'EPSG:26913')
+
+#crop raster to cpf
+crop9 <- terra::crop(r, ext(cpf))
+
+names(crop9) <- 'p_mmhr'
+
+crop9 <- raster(crop9) #only doing this for mapview purpose
+
+jul7_22_15 <- tm_shape(crop9, bbox=ben_bound) +
+  tm_raster(palette = "Set2",
+            breaks = c(0,1,2,3,4,5)) +
+    tm_shape(ben1, bbox = ben_bound) +
+  tm_polygons(alpha=0) +
+    tm_shape(sensors) +
+    tm_symbols(shape = 'Type') +
+    tm_layout(main.title = '2022-07-31 @ 15:00',
+              legend.outside = T)
+
+tmap_mode('plot')
+tmap_arrange(jul7_22_11, jul7_22_12, jul7_22_13, jul7_22_14, jul7_22_15)
 
 
 ```
+
+
 
 
 # 1:1 for TB vs. MRMS
@@ -688,90 +957,174 @@ ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
 
 ```
 
+
 # MRMS MI60
 
 ```{r mrms mi60}
 
 load('rain_metrics.RData')
 
-site_id <- c('me', 'mm', 'mw', 'ue', 'um', 'uw')
+#manual for now
+me <- mrms %>%
+  filter(site == 'me',
+         p_mmhr > 0)
 
-get_radar_intens <- function(site_id){
-  
-mrms_prep <- mrms %>%
-  filter(site == site_id,
-         p_mmhr > 0) %>%
-  arrange(datetime) %>%
-  mutate(site == paste0(site_id))
-  
-mrms_intens <- get_setup(mrms_prep, mrms_prep$datetime) %>%
-  group_by(event, site) %>%
+#me
+me <- get_setup(me, me$datetime) %>%
+  group_by(event) %>%
   summarize(MI60 = max(p_mmhr),
             P = sum(p_mmhr),
-            event = mean(event),
              duration = max(datetime) - min(datetime),
              endtime = max(datetime),
             starttime = min(datetime)) %>%
-  mutate(duration_hr = as.numeric(duration/60/60))
+  mutate(duration_hr = as.numeric(duration/60/60)) %>%
+  filter(P > 1) %>%
+  mutate(site = 'me')
 
-return(mrms_intens)
+#mm
+mm <- mrms %>%
+  filter(site == 'mm',
+         p_mmhr > 0)
 
-}
+mm <- get_setup(mm, me$datetime) %>%
+  group_by(event) %>%
+  summarize(MI60 = max(p_mmhr),
+            P = sum(p_mmhr),
+             duration = max(datetime) - min(datetime),
+             endtime = max(datetime),
+            starttime = min(datetime)) %>%
+  mutate(duration_hr = as.numeric(duration/60/60)) %>%
+  filter(P > 1) %>%
+  mutate(site = 'mm')
 
-mrms_mi60 <- site_id %>%
-  map(~ get_radar_intens(site_id = .)) %>%
-  bind_rows() %>%
-  mutate(year = year(endtime)) %>%
-  filter(P > 1)
+#mw
+mw <- mrms %>%
+  filter(site == 'mw',
+         p_mmhr > 0)
 
-mrms_mi60 %>%
-  filter(year == 2021) %>% 
-ggplot(aes(endtime, MI60)) +
-  geom_point() +
-  facet_wrap(~site) +
-  ggtitle('MRMS 2021')
+mw <- get_setup(mw, mw$datetime) %>%
+  group_by(event) %>%
+  summarize(MI60 = max(p_mmhr),
+            P = sum(p_mmhr),
+             duration = max(datetime) - min(datetime),
+             endtime = max(datetime),
+            starttime = min(datetime)) %>%
+  mutate(duration_hr = as.numeric(duration/60/60)) %>%
+  filter(P > 1) %>%
+  mutate(site = 'mw')
 
-mrms_mi60 %>%
-  filter(year == 2022) %>% 
-ggplot(aes(endtime, MI60)) +
-  geom_point() +
-  facet_wrap(~site) +
-  ggtitle('MRMS 2022')
+#ue
+ue <- mrms %>%
+  filter(site == 'ue',
+         p_mmhr > 0)
+
+ue <- get_setup(ue, ue$datetime) %>%
+  group_by(event) %>%
+  summarize(MI60 = max(p_mmhr),
+            P = sum(p_mmhr),
+             duration = max(datetime) - min(datetime),
+             endtime = max(datetime),
+            starttime = min(datetime)) %>%
+  mutate(duration_hr = as.numeric(duration/60/60)) %>%
+  filter(P > 1) %>%
+  mutate(site = 'ue')
+
+#um
+um <- mrms %>%
+  filter(site == 'um',
+         p_mmhr > 0)
+
+um <- get_setup(um, um$datetime) %>%
+  group_by(event) %>%
+  summarize(MI60 = max(p_mmhr),
+            P = sum(p_mmhr),
+             duration = max(datetime) - min(datetime),
+             endtime = max(datetime),
+            starttime = min(datetime)) %>%
+  mutate(duration_hr = as.numeric(duration/60/60)) %>%
+  filter(P > 1) %>%
+  mutate(site = 'um')
+
+#uw
+uw <- mrms %>%
+  filter(site == 'uw',
+         p_mmhr > 0)
+
+uw <- get_setup(uw, uw$datetime) %>%
+  group_by(event) %>%
+  summarize(MI60 = max(p_mmhr),
+            P = sum(p_mmhr),
+             duration = max(datetime) - min(datetime),
+             endtime = max(datetime),
+            starttime = min(datetime)) %>%
+  mutate(duration_hr = as.numeric(duration/60/60)) %>%
+  filter(P > 1) %>%
+  mutate(site = 'uw')
+
+mrms_metrics <- bind_rows(me, mm, mw, ue, um, uw)
+
+#mrms rain metrics summary
+#response summary
+rain_summary <- mrms_metrics %>%
+  ungroup() %>% 
+  dplyr::select(c(site, P, MI60,
+                  event)) %>%
+  group_by(site) %>%
+  summarize(Total_events = n(),
+            Max_P_mm = max(P),
+            Mean_P_mm = mean(P),
+            Max_MI60 = max(MI60),
+            Mean_MI60 = mean(MI60)) %>%
+  mutate_if(is.numeric,
+            round,
+            digits = 2)
+
+kable(rain_summary) %>%
+  row_spec(0,bold=TRUE) %>% 
+    kable_styling()
+
 
 ```
 
-# Comparing tipping bucket to MRMS MI60s
+# Comparing tipping bucket to MRMS MI60s and total P
 
 ```{r compare MI60s}
 #read in tb events
-# tb_mi60 <- read_csv("tb_events.csv") %>%
-#   mutate(source = 'tb',
-#          year = year(endtime)) %>%
-#   rename(end_time = endtime) %>%
-#   dplyr::select(MI60, end_time, Site, duration_hr, source, year) %>%
-#   rename(site = Site)
-# 
-# mrms_mi60 <- mrms_mi60 %>%
-#   mutate(source = 'mrms') %>%
-#   ungroup() %>% 
-#   dplyr::select(MI60, endtime, site, duration_hr, source, year) %>%
-#   rename(end_time = endtime)
-# 
-# comp_mi60 <- bind_rows(tb_mi60, mrms_mi60)
-# 
-# comp_mi60 %>%
-#   filter(year == 2021) %>% 
-# ggplot(aes(end_time, MI60, color = source, shape = source)) +
-#   geom_point() +
-#   facet_wrap(~site) +
-#   ggtitle('2021')
-# 
-# comp_mi60 %>%
-#   filter(year == 2022) %>% 
-# ggplot(aes(end_time, MI60, color = source, shape = source)) +
-#   geom_point() +
-#   facet_wrap(~site) +
-#   ggtitle('2022')
+tb_mi60 <- read_csv("tb_events.csv") %>%
+  mutate(source = 'tb',
+         year = year(endtime)) %>% 
+  dplyr::select(event, MI60, starttime, endtime, site = Site, duration_hr, P, source, year)
+
+#get mrms mi60 and other rain metrics
+mrms_metrics <- mrms_metrics %>%
+  mutate(source = 'mrms',
+         year = year(endtime)) %>%
+  ungroup() %>%
+  dplyr::select(event, MI60, starttime, endtime, site, duration_hr, P, source, year) 
+
+comp_mi60 <- bind_rows(tb_mi60, mrms_metrics)
+
+comp_mi60 %>%
+ggplot(aes(x = source, y = MI60)) +
+  geom_boxplot() +
+  facet_wrap(~site) 
+
+comp_mi60 %>%
+ggplot(aes(x = source, y = P)) +
+  geom_boxplot() +
+  facet_wrap(~site) +
+  labs( y = 'P (mm) per event')
+
+
+comp_mi60 %>%
+  group_by(site, source, year) %>% 
+  summarize(totalP = sum(P)) %>%
+  ggplot(aes(x = as.factor(year), y = totalP, color = source, shape = source)) +
+  geom_point(size = 4) +
+  facet_wrap(~site)
+    
+    
+
 
 ```
 
@@ -839,22 +1192,22 @@ get_radar_stage_resp <- function(events_df, stage_df) {
 
 
 #break out mimrs_mi60 by site
-me_events <- mrms_mi60 %>%
+me_events <- mrms_metrics %>%
   filter(site == 'me')
 
-mm_events <- mrms_mi60 %>%
+mm_events <- mrms_metrics %>%
   filter(site == 'mm')
 
-mw_events <- mrms_mi60 %>%
+mw_events <- mrms_metrics %>%
   filter(site == 'mw')
 
-ue_events <- mrms_mi60 %>%
+ue_events <- mrms_metrics %>%
   filter(site == 'ue')
 
-um_events <- mrms_mi60 %>%
+um_events <- mrms_metrics %>%
   filter(site == 'um')
 
-uw_events <- mrms_mi60 %>%
+uw_events <- mrms_metrics %>%
   filter(site == 'uw')
 
 #now get stage response for each site
@@ -871,9 +1224,6 @@ mrms_response <- bind_rows(me_response, mm_response,
 
 
 ggplot(mrms_response, aes(site, Stage_range)) +
-  geom_boxplot()
-
-ggplot(mrms_response, aes(site, MI60)) +
   geom_boxplot()
 
 #response summary
@@ -953,7 +1303,7 @@ uw_cor
 
 ```{r}
 
-ben_q <- read_csv('C:/Users/sears/Documents/Repos/CPF/bennett/larimerco_bennett_Q.csv') %>%
+ben_q <- read_csv('/Users/megansears/Documents/Repos/CPF/bennett/larimerco_bennett_Q.csv') %>%
   rename(datetime = DateTime) %>%
   mutate(datetime = ymd_hm(datetime)) %>% 
   mutate(q_cms = q_cfs*0.028)
