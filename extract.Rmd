@@ -151,7 +151,9 @@ library(tmap)
 
 ```
 
-# Cumulative rainfall from TB vs MRMS
+# Rainfall
+
+## Cumulative rainfall from TB vs MRMS
 
 ```{r get hourly tip bucket}
 
@@ -225,7 +227,7 @@ ggplot(all22, aes(datetime, cump, color = source)) +
 
 ```
 
-# Comparing daily TB and MRMS
+## Comparing daily TB and MRMS
 
 ```{r compare daily}
 all_daily <- all %>%
@@ -282,7 +284,7 @@ In summary, there are 18 total instances where there is MRMS data recorded in a 
 
 2022-10-27: (after all cap rods had been downloaded for the season) 
 
-# MRMS spatial pattern for events when no TB was recorded
+## MRMS spatial pattern for events when no TB was recorded
 
 ```{r more mrms spatial}
 
@@ -304,7 +306,7 @@ ben_bound <- st_bbox(ben1)
 # ##############################################
 # 2022-08-23 event
 #pull in an example raster -- add 7 hrs
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220823-220000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220823-220000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -327,7 +329,7 @@ aug23_22_13 <- tm_shape(crop1, bbox=ben_bound) +
 
 # 2022-08-23 14:00
 #pull in an example raster -- add 7 hrs
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220823-230000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220823-230000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -350,7 +352,7 @@ aug23_22_14 <- tm_shape(crop2, bbox=ben_bound) +
 
 # 2022-08-23 15:00
 #pull in an example raster -- add 7 hrs
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220824-000000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220824-000000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -374,7 +376,7 @@ aug23_22_15 <- tm_shape(crop3, bbox=ben_bound) +
 
 # 2022-08-23 16:00
 #pull in an example raster -- add 7 hrs
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220824-010000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220824-010000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -400,7 +402,7 @@ tmap_arrange(aug23_22_13, aug23_22_14, aug23_22_15, aug23_22_16)
 
 # looking at 2022-07-31 from 11:00 to 15:00
 #pull in an example raster -- add 7 hrs
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-180000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220731-180000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -421,7 +423,7 @@ jul7_22_11 <- tm_shape(crop5, bbox=ben_bound) +
               legend.outside = T)
 
 # 2022-07-31 12:00
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-190000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220731-190000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -443,7 +445,7 @@ jul7_22_12 <- tm_shape(crop6, bbox=ben_bound) +
 
 
 # 2022-07-31 13:00
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-200000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220731-200000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -465,7 +467,7 @@ jul7_22_13 <- tm_shape(crop7, bbox=ben_bound) +
 
 
 # 2022-07-31 14:00
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-210000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220731-210000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -487,7 +489,7 @@ jul7_22_14 <- tm_shape(crop8, bbox=ben_bound) +
 
 
 # 2022-07-31 15:00
-r <- rast('/Volumes/CameronPeakFire/MRMS_2022/RadarOnly_QPE_01H_00.00_20220731-220000.grib2') %>%
+r <- rast('/Users/megansears/Documents/MRMS/2022/RadarOnly_QPE_01H_00.00_20220731-220000.grib2') %>%
   terra::project(., 'EPSG:26913')
 
 #crop raster to cpf
@@ -513,10 +515,7 @@ tmap_arrange(jul7_22_11, jul7_22_12, jul7_22_13, jul7_22_14, jul7_22_15)
 
 ```
 
-
-
-
-# 1:1 for TB vs. MRMS
+## 1:1 for TB vs. MRMS
 
 These data represent when the tipping bucket had a record.
 
@@ -588,7 +587,7 @@ ggplot(compare, aes(x=datetime)) +
 
 ```
 
-# Compare precip events
+## Compare precip events
 
 A comparison between TB and MRMS for a few rainfall events.
 
@@ -718,7 +717,7 @@ grid.arrange(event4_line, event4_cum, nrow = 1)
 
 ```
 
-# MRMS spatial patterns for above example events
+## MRMS spatial patterns for above example events
 
 ```{r spatial examples}
 #bennett polygons - only bring in once
@@ -957,8 +956,9 @@ ggplot(aes(datetime, p_mmhr, color = source, shape = source)) +
 
 ```
 
+# Rainfall metrics
 
-# MRMS MI60
+## MRMS MI60
 
 ```{r mrms mi60}
 
@@ -1086,7 +1086,7 @@ kable(rain_summary) %>%
 
 ```
 
-# Comparing tipping bucket to MRMS MI60s and total P
+## Boxplots of TB & MRMS MI60s and total P
 
 ```{r compare MI60s}
 #read in tb events
@@ -1115,20 +1115,41 @@ ggplot(aes(x = source, y = P)) +
   facet_wrap(~site) +
   labs( y = 'P (mm) per event')
 
-
 comp_mi60 %>%
   group_by(site, source, year) %>% 
   summarize(totalP = sum(P)) %>%
   ggplot(aes(x = as.factor(year), y = totalP, color = source, shape = source)) +
   geom_point(size = 4) +
   facet_wrap(~site)
-    
-    
+ 
+```
+
+## 1:1 MRMS MI60 vs TB
+
+```{r 1:1 mi60}
+
+tb_mi60_comp <- tb_mi60 %>%
+  mutate(starttime_floor = floor_date(starttime, unit = 'hour'),
+         date = as.Date(starttime))
+
+mrms_mi60 <- mrms_metrics %>%
+  rename(starttime_floor = starttime) %>%
+  mutate(date = as.Date(starttime_floor))
+
+uno_v_uno <- left_join(mrms_mi60, tb_mi60_comp, by = c('date', 'site', 'starttime_floor'))
+
+ggplot(uno_v_uno, aes(x=MI60.y, y = MI60.x)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, size=1, color='red') +
+  labs(x = 'TB MI60', y = 'MRMS MI60')
 
 
 ```
 
-# MRMS response
+
+# MRMS response analyses
+
+## MRMS response
 
 ```{r MRMS stage response, echo = F}
 
@@ -1251,7 +1272,7 @@ kable(response_summary) %>%
 
 ```
 
-# MRMS correlations
+## MRMS correlations
 
 ```{r cor}
 
@@ -1299,7 +1320,7 @@ uw_cor
 
 ```
 
-# MRMS logistic regressions
+## MRMS logistic regressions
 
 ```{r}
 
