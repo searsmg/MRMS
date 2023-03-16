@@ -34,6 +34,9 @@ library(irr)
 library(plotly)
 library(kableExtra)
 library(tmap)
+library(pscl)
+library(caret)
+library(scales)
 
 ```
 
@@ -1083,6 +1086,49 @@ kable(rain_summary) %>%
   row_spec(0,bold=TRUE) %>% 
     kable_styling()
 
+mrms_metrics %>%
+ggplot(aes(site, MI60)) +
+  geom_boxplot() +
+  ggtitle('MRMS MI60') +
+  labs(y = 'MI60 (mm/hr)')
+
+
+mrms_metrics$color_var <- ifelse(substr(mrms_metrics$site, 1, 1) == "m", "m_sites", "other_sites")
+
+mi60_boxplot <- mrms_metrics %>%
+  ggplot(aes(site, MI60, fill = color_var)) +
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("m_sites" = "coral3", "other_sites" = "white")) +
+  scale_y_log10() +
+  labs(x='Site', y = 'MI60 (mm/hr)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) 
+
+mi60_boxplot
+
+ggsave("MI60_boxplot.png", plot = mi60_boxplot, width = 8, height = 6, dpi = 300)
+
+p_boxplot <- mrms_metrics %>%
+  ggplot(aes(site, P, fill = color_var)) +
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("m_sites" = "coral3", "other_sites" = "white")) +
+  scale_y_log10() +
+  labs(x='Site', y = 'Rain per event (mm)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) 
+
+p_boxplot
+
+ggsave("P_boxplot.png", plot = p_boxplot, width = 8, height = 6, dpi = 300)
+
 
 ```
 
@@ -1195,7 +1241,8 @@ get_radar_stage_resp <- function(events_df, stage_df) {
   
   out <- response %>%
     group_by(event) %>%
-    mutate(Stage_range = max(Stage_mm) - min(Stage_mm)) %>%
+    mutate(Stage_range = max(Stage_mm) - min(Stage_mm),
+           bed_change_mm = last(Stage_mm) - first(Stage_mm)) %>%
     group_by(event) %>%
     filter(Stage_mm == max(Stage_mm)) %>%
     rename(Stage_mm_max = Stage_mm) %>% 
@@ -1270,6 +1317,63 @@ kable(response_summary) %>%
 
 #note, stage is mm 
 
+mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "m_sites", "other_sites")
+
+response_bplot <- mrms_response %>%
+  ggplot(aes(site, Stage_range/10, fill = color_var)) +
+  geom_boxplot(color = "black") +
+  scale_fill_manual(values = c("m_sites" = "coral3", "other_sites" = "white")) +
+  scale_y_log10() +
+  labs(x='Site', y = 'Stage rise (cm)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) 
+
+response_bplot
+
+ggsave("stage_boxplot.png", plot = response_bplot, width = 8, height = 6, dpi = 300)
+
+####
+
+comp1 <- mrms_response %>%
+  ggplot(aes(MI60, Stage_range/10, color = site, shape = site)) +
+  geom_point() +
+  labs(x='MI60', y = 'Stage rise (cm)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  scale_color_discrete(name = "site") +
+  scale_shape_discrete(name = 'site')
+  
+  
+
+ggplotly(comp1)
+
+
+comp2 <- mrms_response %>%
+  ggplot(aes(MI60, Stage_range/10, color = site, shape = site)) +
+  geom_point() +
+  labs(x='MI60', y = 'Stage rise (cm)') +
+    theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12)) +
+  facet_wrap(~site)
+
+comp2
+
+ggsave("compare.png", plot = comp2, width = 8, height = 6, dpi = 300)
+
+ggplotly(ggplot(mrms_response, aes(Stage_range/10)) + geom_histogram(binwidth=2.5))
+
+ggplotly(ggplot(mrms_response, aes(Stage_range)) + geom_density(color = "blue", fill = "lightblue", alpha = 0.5))
+
+
+
 ```
 
 ## MRMS correlations
@@ -1279,8 +1383,10 @@ kable(response_summary) %>%
 # me correlations
 me_cor <- me_response %>%
   ungroup() %>% 
-  dplyr::select(duration_hr, P, MI60) %>%
+  dplyr::select(duration_hr, P, MI60, bed_change_mm) %>%
   cor()
+
+me_cor
 
 # mm correlations
 mm_cor <- mm_response %>%
@@ -1339,17 +1445,20 @@ me_response2 <- me_response %>%
 me_response2 <- left_join(me_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-me_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = me_response2, family = binomial)
+me_glm <- glm(response ~ q_cms + doy +P + duration_hr + MI60, data = me_response2, family = binomial)
 
 me_response2$pred <- predict(me_glm, me_response2, type = 'response')
 
 me_response3 <- me_response2 %>%
   mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
   ungroup() %>% 
-  dplyr::select(response, prediction)
+  dplyr::select(response, prediction) 
 
 me_kappa <- kappa2(me_response3)
 me_kappa$value
+
+me_cm <- confusionMatrix(as.factor(me_response3$prediction), as.factor(me_response3$response))
+me_cm
 
 #mm
 mm_response2 <- mm_response %>%
@@ -1358,7 +1467,7 @@ mm_response2 <- mm_response %>%
 mm_response2 <- left_join(mm_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-mm_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = mm_response2, family = binomial)
+mm_glm <- glm(response ~ q_cms + doy + duration_hr + P + MI60, data = mm_response2, family = binomial)
 
 mm_response2$pred <- predict(mm_glm, mm_response2, type = 'response')
 
@@ -1369,6 +1478,10 @@ mm_response3 <- mm_response2 %>%
 
 mm_kappa <- kappa2(mm_response3)
 mm_kappa$value
+
+mm_cm <- confusionMatrix(as.factor(mm_response3$prediction), as.factor(mm_response3$response))
+mm_cm
+
 
 #mw
 mw_response2 <- mw_response %>%
@@ -1389,6 +1502,10 @@ mw_response3 <- mw_response2 %>%
 mw_kappa <- kappa2(mw_response3)
 mw_kappa$value
 
+mw_cm <- confusionMatrix(as.factor(mw_response3$prediction), as.factor(mw_response3$response))
+mw_cm
+
+
 #ue
 ue_response2 <- ue_response %>%
   mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
@@ -1407,6 +1524,9 @@ ue_response3 <- ue_response2 %>%
 
 ue_kappa <- kappa2(ue_response3)
 ue_kappa$value
+
+ue_cm <- confusionMatrix(as.factor(ue_response3$prediction), as.factor(ue_response3$response))
+ue_cm
 
 #um
 um_response2 <- um_response %>%
@@ -1427,6 +1547,9 @@ um_response3 <- um_response2 %>%
 um_kappa <- kappa2(um_response3)
 um_kappa$value
 
+um_cm <- confusionMatrix(as.factor(um_response3$prediction), as.factor(um_response3$response))
+um_cm
+
 #uw
 uw_response2 <- uw_response %>%
   mutate(floor_dt = floor_date(datetime_maxstage, 'hour'))
@@ -1434,7 +1557,12 @@ uw_response2 <- uw_response %>%
 uw_response2 <- left_join(uw_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-uw_glm <- glm(response ~ q_cms + doy + duration_hr + MI60 + P, data = uw_response2, family = binomial)
+uw_response2 <- uw_response2 %>%
+  mutate(MI60_log = log(MI60 + 1))
+
+
+uw_glm <- glm(response ~ q_cms + doy + duration_hr + P + MI60, data = uw_response2, family = binomial)
+summary(uw_glm)
 
 uw_response2$pred <- predict(uw_glm, uw_response2, type = 'response')
 
@@ -1445,6 +1573,20 @@ uw_response3 <- uw_response2 %>%
 
 uw_kappa <- kappa2(uw_response3)
 uw_kappa$value
+
+uw_cm <- confusionMatrix(as.factor(uw_response3$prediction), as.factor(uw_response3$response))
+uw_cm
+
+
+################
+library(psych)
+describe(uw_response2$q_cms)
+
+
+# Compute confusion matrix and performance metrics
+uw_rf_cm <- confusionMatrix(as.factor(uw_response3$prediction), as.factor(uw_response3$response))
+uw_rf_cm
+
 
 ## make a df for this
 first <- c('me', 'mm', 'mw',
@@ -1458,6 +1600,55 @@ log_kappas <- data.frame(first,second) %>%
 
 kable(log_kappas) %>%
   kable_styling()
+
+
+
+```
+
+# MRMS linear multiple regression
+
+```{r stage rise as response}
+
+
+me_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = me_response2)
+
+summary(me_glm)
+summary(me_glm)$r.squared
+
+
+mm_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = mm_response2)
+
+summary(mm_glm)
+summary(mm_glm)$r.squared
+
+mw_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = mw_response2)
+
+summary(mw_glm)
+summary(mw_glm)$r.squared
+
+ue_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = ue_response2)
+
+summary(ue_glm)
+summary(ue_glm)$r.squared
+
+um_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = um_response2)
+
+summary(um_glm)
+summary(um_glm)$r.squared
+
+uw_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = uw_response2)
+
+summary(uw_glm)
+summary(uw_glm)$r.squared
+
+
+```
+
+# Slope
+
+```{r slope}
+
+
 
 
 

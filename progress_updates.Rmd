@@ -350,7 +350,7 @@ Larimer County Bennett Creek streamflow gage, day of year, and rainfall metrics 
 
 ```{r regress}
 
-ben_q <- read_csv('C:/Users/sears/Documents/Repos/CPF/bennett/larimerco_bennett_Q.csv') %>%
+ben_q <- read_csv('/Users/megansears/Documents/Repos/CPF/bennett/larimerco_bennett_Q.csv') %>%
   rename(datetime = DateTime) %>%
   mutate(datetime = ymd_hm(datetime)) %>% 
   mutate(q_cms = q_cfs*0.028)
@@ -460,7 +460,7 @@ uw_response2 <- uw_response %>%
 uw_response2 <- left_join(uw_response2, ben_q, by = 'floor_dt') %>%
   mutate(doy = yday(floor_dt))
 
-uw_glm <- glm(response ~ q_cms + doy, data = uw_response2, family = binomial)
+uw_glm <- glm(response ~ q_cms + doy + P + MI60 + duration_hr, data = uw_response2, family = binomial)
 summary(uw_glm)
 
 uw_response2$pred <- predict(uw_glm, uw_response2, type = 'response')
