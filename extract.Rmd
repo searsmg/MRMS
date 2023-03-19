@@ -1106,16 +1106,23 @@ mi60_boxplot <- mrms_metrics %>%
         axis.text = element_text(size = 12),
         legend.position = "none",
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) 
+        panel.grid.minor = element_blank()) +
+  geom_hline(yintercept = 15.0368, color = 'grey', linetype= 'dashed') +
+  geom_text(aes(x = 1.5, y = 16.5), label = "1-year RI") +
+  geom_hline(yintercept = 17.907, color = 'grey', linetype= 'dashed') +
+  geom_text(aes(x = 1.5, y = 19.5), label = "2-year RI") +
+  geom_hline(yintercept = 23.3934, color = 'grey', linetype= 'dashed')+
+  geom_text(aes(x = 1.5, y = 25.5), label = "5-year RI") 
 
 mi60_boxplot
 
 ggsave("MI60_boxplot.png", plot = mi60_boxplot, width = 8, height = 6, dpi = 300)
 
-p_boxplot <- mrms_metrics %>%
+p_vio <- mrms_metrics %>%
   ggplot(aes(site, P, fill = color_var)) +
-  geom_boxplot(color = "black") +
-  scale_fill_manual(values = c("m_sites" = "coral3", "other_sites" = "white")) +
+  geom_violin(color = 'black') +
+  geom_boxplot(width = 0.1) +
+  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
   scale_y_log10() +
   labs(x='Site', y = 'Rain per event (mm)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
@@ -1125,9 +1132,33 @@ p_boxplot <- mrms_metrics %>%
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank()) 
 
-p_boxplot
+p_vio
 
-ggsave("P_boxplot.png", plot = p_boxplot, width = 8, height = 6, dpi = 300)
+ggsave("P_boxplot.png", plot = p_vio, width = 8, height = 6, dpi = 300)
+
+
+
+mi60_vio <- mrms_metrics %>%
+  ggplot(aes(site, MI60, fill = color_var)) +
+  geom_violin(color = "black") +
+  geom_boxplot(width=0.1) +
+  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
+  scale_y_log10() +
+  labs(x='Site', y = 'MI60 (mm/hr)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  geom_hline(yintercept = 15.0368, color = 'grey', linetype= 'dashed') +
+  geom_text(aes(x = 1.5, y = 16.5), label = "1-year RI") +
+  geom_hline(yintercept = 17.907, color = 'grey', linetype= 'dashed') +
+  geom_text(aes(x = 1.5, y = 19.5), label = "2-year RI") +
+  geom_hline(yintercept = 23.3934, color = 'grey', linetype= 'dashed')+
+  geom_text(aes(x = 1.5, y = 25.5), label = "5-year RI") 
+
+ggsave("mi60_pvio.png", plot = mi60_vio, width = 8, height = 6, dpi = 300)
 
 
 ```
@@ -1321,8 +1352,9 @@ mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "m_si
 
 response_bplot <- mrms_response %>%
   ggplot(aes(site, Stage_range/10, fill = color_var)) +
-  geom_boxplot(color = "black") +
-  scale_fill_manual(values = c("m_sites" = "coral3", "other_sites" = "white")) +
+  geom_violin(color = 'black') +
+  geom_boxplot(color = "black", width = 0.1) +
+  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
   scale_y_log10() +
   labs(x='Site', y = 'Stage rise (cm)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
@@ -1337,31 +1369,17 @@ response_bplot
 ggsave("stage_boxplot.png", plot = response_bplot, width = 8, height = 6, dpi = 300)
 
 ####
+mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "m_sites", "other_sites")
 
-comp1 <- mrms_response %>%
-  ggplot(aes(MI60, Stage_range/10, color = site, shape = site)) +
+comp2 <- mrms_response %>%
+  ggplot(aes(MI60, Stage_range/10, color = color_var)) +
   geom_point() +
-  labs(x='MI60', y = 'Stage rise (cm)') +
+  scale_color_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "black")) +
+  labs(x='MI60 (mm/hr)', y = 'Stage rise (cm)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
         axis.title = element_text(size = 14),
         axis.text = element_text(size = 12),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) +
-  scale_color_discrete(name = "site") +
-  scale_shape_discrete(name = 'site')
-  
-  
-
-ggplotly(comp1)
-
-
-comp2 <- mrms_response %>%
-  ggplot(aes(MI60, Stage_range/10, color = site, shape = site)) +
-  geom_point() +
-  labs(x='MI60', y = 'Stage rise (cm)') +
-    theme(plot.title = element_text(size = 16, face = "bold"),
-        axis.title = element_text(size = 14),
-        axis.text = element_text(size = 12)) +
+        legend.position = "none")  +
   facet_wrap(~site)
 
 comp2
@@ -1372,6 +1390,24 @@ ggplotly(ggplot(mrms_response, aes(Stage_range/10)) + geom_histogram(binwidth=2.
 
 ggplotly(ggplot(mrms_response, aes(Stage_range)) + geom_density(color = "blue", fill = "lightblue", alpha = 0.5))
 
+
+bedchange_bplot <- mrms_response %>%
+  ggplot(aes(site, bed_change_mm/10, fill = color_var)) +
+  geom_violin(color = 'black') +
+  geom_boxplot(color = "black", width = 0.1) +
+  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
+  #scale_y_log10() +
+  labs(x='Site', y = 'Bed change (cm)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "none",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) 
+
+bedchange_bplot
+
+ggsave("bedchange_boxplot.png", plot = bedchange_bplot, width = 8, height = 6, dpi = 300)
 
 
 ```
@@ -1436,7 +1472,11 @@ ben_q <- read_csv('/Users/megansears/Documents/Repos/CPF/bennett/larimerco_benne
   mutate(q_cms = q_cfs*0.028)
 
 ben_q <- ben_q %>%
-  rename(floor_dt = datetime)
+  rename(floor_dt = datetime) %>%
+  mutate(floor_dt = floor_date(floor_dt, 'hour')) %>%
+  group_by(floor_dt) %>%
+  summarize(q_cms = mean(q_cms))
+
 
 #me 
 me_response2 <- me_response %>%
@@ -1610,33 +1650,33 @@ kable(log_kappas) %>%
 ```{r stage rise as response}
 
 
-me_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = me_response2)
+me_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60, data = me_response2)
 
 summary(me_glm)
 summary(me_glm)$r.squared
 
 
-mm_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = mm_response2)
+mm_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60, data = mm_response2)
 
 summary(mm_glm)
 summary(mm_glm)$r.squared
 
-mw_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = mw_response2)
+mw_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60, data = mw_response2)
 
 summary(mw_glm)
 summary(mw_glm)$r.squared
 
-ue_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = ue_response2)
+ue_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60, data = ue_response2)
 
 summary(ue_glm)
 summary(ue_glm)$r.squared
 
-um_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = um_response2)
+um_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60, data = um_response2)
 
 summary(um_glm)
 summary(um_glm)$r.squared
 
-uw_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60 + bed_change_mm, data = uw_response2)
+uw_glm <- lm(Stage_range ~ q_cms + doy +P + duration_hr + MI60, data = uw_response2)
 
 summary(uw_glm)
 summary(uw_glm)$r.squared
@@ -1644,13 +1684,108 @@ summary(uw_glm)$r.squared
 
 ```
 
-# Slope
+```{r logit regress with 10cm}
 
-```{r slope}
+me_response10 <- me_response2 %>%
+  mutate(response10 = ifelse(Stage_range > 100, 1, 0))
 
+me_glm <- glm(response10 ~ q_cms + doy +P + duration_hr + MI60, data = me_response10, family = binomial)
 
+me_response10$pred <- predict(me_glm, me_response10, type = 'response')
 
+me_response_log10 <- me_response10 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction) 
 
+me_kappa <- kappa2(me_response_log10)
+me_kappa$value
+
+me_cm <- confusionMatrix(as.factor(me_response_log10$prediction), as.factor(me_response_log10$response))
+me_cm
+
+###
+
+mm_response10 <- mm_response2 %>%
+  mutate(response10 = ifelse(Stage_range > 100, 1, 0))
+
+mm_glm <- glm(response10 ~ q_cms + doy +P + duration_hr + MI60, data = mm_response10, family = binomial)
+
+mm_response10$pred <- predict(mm_glm, mm_response10, type = 'response')
+
+mm_response_log10 <- mm_response10 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction) 
+
+mm_kappa <- kappa2(mm_response_log10)
+mm_kappa$value
+
+mm_cm <- confusionMatrix(as.factor(mm_response_log10$prediction), as.factor(mm_response_log10$response))
+mm_cm
+
+###
+
+mw_response10 <- mw_response2 %>%
+  mutate(response10 = ifelse(Stage_range > 100, 1, 0))
+
+mw_glm <- glm(response10 ~ q_cms + doy +P + duration_hr + MI60, data = mw_response10, family = binomial)
+
+mw_response10$pred <- predict(mw_glm, mw_response10, type = 'response')
+
+mw_response_log10 <- mw_response10 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction) 
+
+mw_kappa <- kappa2(mw_response_log10)
+mw_kappa$value
+
+mw_cm <- confusionMatrix(as.factor(mw_response_log10$prediction), as.factor(mw_response_log10$response))
+mw_cm
+
+###
+
+ue_response10 <- ue_response2 %>%
+  mutate(response10 = ifelse(Stage_range > 100, 1, 0))
+
+ue_glm <- glm(response10 ~ q_cms + doy +P + duration_hr + MI60, data = ue_response10, family = binomial)
+
+ue_response10$pred <- predict(ue_glm, ue_response10, type = 'response')
+
+ue_response_log10 <- ue_response10 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction) 
+
+ue_kappa <- kappa2(ue_response_log10)
+ue_kappa$value
+
+ue_cm <- confusionMatrix(as.factor(ue_response_log10$prediction), as.factor(ue_response_log10$response))
+ue_cm
+
+###
+
+uw_response10 <- uw_response2 %>%
+  mutate(response10 = ifelse(Stage_range > 100, 1, 0))
+
+uw_glm <- glm(response10 ~ q_cms + doy +P + duration_hr + MI60, data = uw_response10, family = binomial)
+
+uw_response10$pred <- predict(uw_glm, uw_response10, type = 'response')
+
+uw_response_log10 <- uw_response10 %>%
+  mutate(prediction = if_else(pred > 0.5, 1, 0)) %>%
+  ungroup() %>% 
+  dplyr::select(response, prediction) 
+
+uw_kappa <- kappa2(uw_response_log10)
+uw_kappa$value
+
+uw_cm <- confusionMatrix(as.factor(uw_response_log10$prediction), as.factor(uw_response_log10$response))
+uw_cm
+
+###
 
 ```
+
 
