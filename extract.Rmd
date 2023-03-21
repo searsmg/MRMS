@@ -1076,6 +1076,8 @@ rain_summary <- mrms_metrics %>%
   summarize(Total_events = n(),
             Max_P_mm = max(P),
             Mean_P_mm = mean(P),
+            Median_P_mm = median(P),
+            Median_MI60 = median(MI60),
             Max_MI60 = max(MI60),
             Mean_MI60 = mean(MI60)) %>%
   mutate_if(is.numeric,
@@ -1093,7 +1095,7 @@ ggplot(aes(site, MI60)) +
   labs(y = 'MI60 (mm/hr)')
 
 
-mrms_metrics$color_var <- ifelse(substr(mrms_metrics$site, 1, 1) == "m", "m_sites", "other_sites")
+mrms_metrics$color_var <- ifelse(substr(mrms_metrics$site, 1, 1) == "m", "Mulched", "Untreated")
 
 mi60_boxplot <- mrms_metrics %>%
   ggplot(aes(site, MI60, fill = color_var)) +
@@ -1122,15 +1124,15 @@ p_vio <- mrms_metrics %>%
   ggplot(aes(site, P, fill = color_var)) +
   geom_violin(color = 'black') +
   geom_boxplot(width = 0.1) +
-  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
+  scale_fill_manual(name = '', values = c("Mulched" = "goldenrod3", "Untreated" = "white")) +
   scale_y_log10() +
   labs(x='Site', y = 'Rain per event (mm)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
         axis.title = element_text(size = 14),
         axis.text = element_text(size = 12),
-        legend.position = "none",
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) 
+        panel.grid.minor = element_blank(),
+        legend.position = 'bottom') 
 
 p_vio
 
@@ -1142,13 +1144,13 @@ mi60_vio <- mrms_metrics %>%
   ggplot(aes(site, MI60, fill = color_var)) +
   geom_violin(color = "black") +
   geom_boxplot(width=0.1) +
-  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
+  scale_fill_manual(name = '', values = c("Mulched" = "goldenrod3", "Untreated" = "white")) +
   scale_y_log10() +
   labs(x='Site', y = 'MI60 (mm/hr)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
         axis.title = element_text(size = 14),
         axis.text = element_text(size = 12),
-        legend.position = "none",
+        legend.position = "bottom",
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank()) +
   geom_hline(yintercept = 15.0368, color = 'grey', linetype= 'dashed') +
@@ -1329,16 +1331,14 @@ ggplot(mrms_response, aes(site, Stage_range)) +
 response_summary <- mrms_response %>%
   ungroup() %>% 
   dplyr::select(c(site, P, MI60,
-                  Stage_mm_max, Stage_range, lag2p_hr, response)) %>%
+                  Stage_mm_max, Stage_range, bed_change_mm, lag2p_hr, response)) %>%
   group_by(site) %>%
   summarize(Total_events = n(),
-            Percent_response = (sum(response)/Total_events)*100,
-            Max_P_mm = max(P),
-            Mean_P_mm = mean(P),
-            Max_MI60 = max(MI60),
-            Mean_MI60 = mean(MI60),
-            Max_Stage_Response_cm = max(Stage_range)/10,
-            Mean_Stage_response_cm = mean(Stage_range)/10) %>%
+            Max_Stage_Response_cm = max(Stage_range/10),
+            Mean_Stage_response_cm = mean(Stage_range/10),
+            Median_stage = median(Stage_range/10),
+            max_bed = max(bed_change_mm/10),
+            median_bed = median(bed_change_mm/10)) %>%
   mutate_if(is.numeric,
             round,
             digits = 2)
@@ -1347,20 +1347,22 @@ kable(response_summary) %>%
   kable_styling()
 
 #note, stage is mm 
+library(ggallin)
 
-mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "m_sites", "other_sites")
+mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "Mulched", "Untreated")
 
 response_bplot <- mrms_response %>%
   ggplot(aes(site, Stage_range/10, fill = color_var)) +
   geom_violin(color = 'black') +
-  geom_boxplot(color = "black", width = 0.1) +
-  scale_fill_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "white")) +
-  scale_y_log10() +
+  geom_boxplot(color = "black", width = 0.05) +
+  scale_fill_manual(name = '', values = c("Mulched" = "goldenrod3", "Untreated" = "white")) +
+  scale_y_continuous(trans = pseudolog10_trans) +
+  #scale_y_log10() +
   labs(x='Site', y = 'Stage rise (cm)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
         axis.title = element_text(size = 14),
         axis.text = element_text(size = 12),
-        legend.position = "none",
+        legend.position = "bottom",
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank()) 
 
@@ -1369,22 +1371,50 @@ response_bplot
 ggsave("stage_boxplot.png", plot = response_bplot, width = 8, height = 6, dpi = 300)
 
 ####
-mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "m_sites", "other_sites")
 
-comp2 <- mrms_response %>%
-  ggplot(aes(MI60, Stage_range/10, color = color_var)) +
-  geom_point() +
-  scale_color_manual(values = c("m_sites" = "goldenrod3", "other_sites" = "black")) +
+
+mrms_response <- mrms_response %>%
+  mutate(response_char = if_else(response == 1, 'Yes', 'No'),
+         response_big = if_else(Stage_range > 100, '>10', '<10'))
+
+mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "Mulched", "Untreated")
+library(gghighlight)
+
+site_names <- c('me' = 'Mulched east', 
+                'mm' = 'Mulched middle', 
+                'mw' = 'Mulched west',
+                'ue' = 'Unmulched east',
+                'um' = 'Unmulched middle',
+                'uw' = 'Unmulched west')
+
+comp3 <- mrms_response %>%
+  ggplot(aes(MI60, Stage_range/10, color = response_char, shape = response_char, alpha = response_char)) +
+  geom_point(size = 3) +
+  scale_color_manual(name = 'Response', values = c("No" = "black", "Yes" = "deepskyblue4")) +
+  scale_alpha_manual(name = 'Response', values = c('No' = 1, 'Yes' = 0.5)) +
+  scale_shape_manual(name = 'Response', values = c('No' = 19, 'Yes' = 17)) +
+  scale_y_continuous(trans = pseudolog10_trans, limits = c(0,110)) +
   labs(x='MI60 (mm/hr)', y = 'Stage rise (cm)') +
   theme(plot.title = element_text(size = 16, face = "bold"),
         axis.title = element_text(size = 14),
         axis.text = element_text(size = 12),
-        legend.position = "none")  +
-  facet_wrap(~site)
+        legend.position = "right")  +
+  facet_wrap(~site,
+             labeller = as_labeller(site_names)) +
+  geom_hline(yintercept = 10)
 
-comp2
+comp3
+ggplotly(comp2)
 
-ggsave("compare.png", plot = comp2, width = 8, height = 6, dpi = 300)
+ggsave("compare.png", plot = comp3, width = 8, height = 6, dpi = 300)
+
+### density
+  ggplot(mrms_response, aes(Stage_range/10)) +
+  geom_density() +
+  facet_wrap(~site,
+             labeller = as_labeller(site_names)) 
+
+
 
 ggplotly(ggplot(mrms_response, aes(Stage_range/10)) + geom_histogram(binwidth=2.5))
 
@@ -1404,6 +1434,30 @@ bedchange_bplot <- mrms_response %>%
         legend.position = "none",
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank()) 
+
+bedchange_bplot
+
+ggsave("bedchange_boxplot.png", plot = bedchange_bplot, width = 8, height = 6, dpi = 300)
+
+
+
+bedchange_bplot <- mrms_response %>%
+  ggplot(aes(site, bed_change_mm/10, fill = color_var)) +
+    geom_hline(yintercept = 0, color = 'black') +
+  geom_violin(color = 'black') +
+  geom_boxplot(color = "black", width = 0.1) +
+  scale_fill_manual(name = '', values = c("Mulched" = "goldenrod3", "Untreated" = "white")) +
+  scale_y_continuous(trans = pseudolog10_trans, limits = c(-20,70)) +
+    #scale_y_log10() +
+  labs(x='Site', y = 'Bed change (cm)') +
+  theme(plot.title = element_text(size = 16, face = "bold"),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 12),
+        legend.position = "bottom",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  geom_text(aes(x = 5, y = 25.5), label = "Aggradation") +
+  geom_text(aes(x = 5, y = -10), label = "Degradation")
 
 bedchange_bplot
 
