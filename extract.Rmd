@@ -970,7 +970,8 @@ load('rain_metrics.RData')
 #manual for now
 me <- mrms %>%
   filter(site == 'me',
-         p_mmhr > 0)
+         p_mmhr > 0) %>% 
+  arrange(datetime)
 
 #me
 me <- get_setup(me, me$datetime) %>%
@@ -987,7 +988,8 @@ me <- get_setup(me, me$datetime) %>%
 #mm
 mm <- mrms %>%
   filter(site == 'mm',
-         p_mmhr > 0)
+         p_mmhr > 0) %>% 
+  arrange(datetime)
 
 mm <- get_setup(mm, me$datetime) %>%
   group_by(event) %>%
@@ -1003,7 +1005,8 @@ mm <- get_setup(mm, me$datetime) %>%
 #mw
 mw <- mrms %>%
   filter(site == 'mw',
-         p_mmhr > 0)
+         p_mmhr > 0) %>% 
+  arrange(datetime)
 
 mw <- get_setup(mw, mw$datetime) %>%
   group_by(event) %>%
@@ -1019,7 +1022,8 @@ mw <- get_setup(mw, mw$datetime) %>%
 #ue
 ue <- mrms %>%
   filter(site == 'ue',
-         p_mmhr > 0)
+         p_mmhr > 0) %>% 
+  arrange(datetime)
 
 ue <- get_setup(ue, ue$datetime) %>%
   group_by(event) %>%
@@ -1035,7 +1039,8 @@ ue <- get_setup(ue, ue$datetime) %>%
 #um
 um <- mrms %>%
   filter(site == 'um',
-         p_mmhr > 0)
+         p_mmhr > 0) %>% 
+  arrange(datetime)
 
 um <- get_setup(um, um$datetime) %>%
   group_by(event) %>%
@@ -1051,8 +1056,9 @@ um <- get_setup(um, um$datetime) %>%
 #uw
 uw <- mrms %>%
   filter(site == 'uw',
-         p_mmhr > 0)
-
+         p_mmhr > 0) %>% 
+  arrange(datetime)
+ 
 uw <- get_setup(uw, uw$datetime) %>%
   group_by(event) %>%
   summarize(MI60 = max(p_mmhr),
@@ -1095,6 +1101,7 @@ ggplot(aes(site, MI60)) +
   labs(y = 'MI60 (mm/hr)')
 
 
+### hydro days figs ###
 mrms_metrics$color_var <- ifelse(substr(mrms_metrics$site, 1, 1) == "m", "Mulched", "Untreated")
 
 mi60_boxplot <- mrms_metrics %>%
@@ -1138,8 +1145,6 @@ p_vio
 
 ggsave("P_boxplot.png", plot = p_vio, width = 8, height = 6, dpi = 300)
 
-
-
 mi60_vio <- mrms_metrics %>%
   ggplot(aes(site, MI60, fill = color_var)) +
   geom_violin(color = "black") +
@@ -1162,6 +1167,7 @@ mi60_vio <- mrms_metrics %>%
 
 ggsave("mi60_pvio.png", plot = mi60_vio, width = 8, height = 6, dpi = 300)
 
+############
 
 ```
 
@@ -1209,13 +1215,18 @@ comp_mi60 %>%
 
 tb_mi60_comp <- tb_mi60 %>%
   mutate(starttime_floor = floor_date(starttime, unit = 'hour'),
-         date = as.Date(starttime))
+         date = as.Date(starttime),
+         doy = yday(date),
+         code = paste0(site, doy))
 
 mrms_mi60 <- mrms_metrics %>%
   rename(starttime_floor = starttime) %>%
-  mutate(date = as.Date(starttime_floor))
+  mutate(date = as.Date(starttime_floor),
+         doy = yday(date),
+         code = paste0(year,site,doy)) %>%
+  mutate(dup = duplicated(code))
 
-uno_v_uno <- left_join(mrms_mi60, tb_mi60_comp, by = c('date', 'site', 'starttime_floor'))
+uno_v_uno <- left_join(mrms_mi60, tb_mi60_comp, by = c('site', 'starttime_floor'))
 
 ggplot(uno_v_uno, aes(x=MI60.y, y = MI60.x)) +
   geom_point() +
@@ -1224,7 +1235,6 @@ ggplot(uno_v_uno, aes(x=MI60.y, y = MI60.x)) +
 
 
 ```
-
 
 # MRMS response analyses
 
@@ -1346,7 +1356,10 @@ response_summary <- mrms_response %>%
 kable(response_summary) %>%
   kable_styling()
 
-#note, stage is mm 
+#note, stage is mm
+
+### hydro days figs ###
+
 library(ggallin)
 
 mrms_response$color_var <- ifelse(substr(mrms_response$site, 1, 1) == "m", "Mulched", "Untreated")
@@ -1369,9 +1382,6 @@ response_bplot <- mrms_response %>%
 response_bplot
 
 ggsave("stage_boxplot.png", plot = response_bplot, width = 8, height = 6, dpi = 300)
-
-####
-
 
 mrms_response <- mrms_response %>%
   mutate(response_char = if_else(response == 1, 'Yes', 'No'),
@@ -1404,7 +1414,6 @@ comp3 <- mrms_response %>%
   geom_hline(yintercept = 10)
 
 comp3
-ggplotly(comp2)
 
 ggsave("compare.png", plot = comp3, width = 8, height = 6, dpi = 300)
 
@@ -1413,13 +1422,6 @@ ggsave("compare.png", plot = comp3, width = 8, height = 6, dpi = 300)
   geom_density() +
   facet_wrap(~site,
              labeller = as_labeller(site_names)) 
-
-
-
-ggplotly(ggplot(mrms_response, aes(Stage_range/10)) + geom_histogram(binwidth=2.5))
-
-ggplotly(ggplot(mrms_response, aes(Stage_range)) + geom_density(color = "blue", fill = "lightblue", alpha = 0.5))
-
 
 bedchange_bplot <- mrms_response %>%
   ggplot(aes(site, bed_change_mm/10, fill = color_var)) +
@@ -1438,8 +1440,6 @@ bedchange_bplot <- mrms_response %>%
 bedchange_bplot
 
 ggsave("bedchange_boxplot.png", plot = bedchange_bplot, width = 8, height = 6, dpi = 300)
-
-
 
 bedchange_bplot <- mrms_response %>%
   ggplot(aes(site, bed_change_mm/10, fill = color_var)) +
@@ -1463,6 +1463,7 @@ bedchange_bplot
 
 ggsave("bedchange_boxplot.png", plot = bedchange_bplot, width = 8, height = 6, dpi = 300)
 
+##################
 
 ```
 
@@ -1738,6 +1739,8 @@ summary(uw_glm)$r.squared
 
 ```
 
+## MRMS logistic regressions with 10 cutoff
+
 ```{r logit regress with 10cm}
 
 me_response10 <- me_response2 %>%
@@ -1839,6 +1842,16 @@ uw_cm <- confusionMatrix(as.factor(uw_response_log10$prediction), as.factor(uw_r
 uw_cm
 
 ###
+
+```
+
+
+```{r}
+library(nlme)
+
+test_mixed <- lme(response ~ MI60, random = (~1|site), na.action = na.omit, data = mrms_response)
+summary(test_mixed)
+
 
 ```
 
