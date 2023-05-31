@@ -179,12 +179,12 @@ mrms21 <- read_csv('mrms_21.csv') %>%
   dplyr::select(-c(...1, ID)) %>%
   rename(site = name) %>%
   mutate(site = tolower(site)) %>%
-  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1, figure out time correction
+  mutate(datetime  = datetime - (1 * 60 * 60)) #should only be -1, figure out time correction
 
 mrms22 <- read_csv('mrms_22.csv') %>%
   rename(site = name) %>%
   mutate(site = tolower(site)) %>%
-  mutate(datetime  = datetime - (2 * 60 * 60)) #should only be -1, figure out time correction
+  mutate(datetime  = datetime - (1 * 60 * 60)) #should only be -1, figure out time correction
 
 mrms <- bind_rows(mrms21, mrms22) %>%
   mutate(source = 'mrms')

@@ -206,6 +206,7 @@ rain_summary <- mrms_mi60 %>%
                   event)) %>%
   group_by(site) %>%
   summarize(Total_events = n(),
+            Total_p_mm = sum(P),
             Max_P_mm = max(P),
             Mean_P_mm = mean(P),
             Max_MI60 = max(MI60),
@@ -330,6 +331,7 @@ response_summary <- mrms_response %>%
                   Stage_mm_max, Stage_range, lag2p_hr, response)) %>%
   group_by(site) %>%
   summarize(Total_events = n(),
+            Total_pos_response = sum(response),
             Percent_response = (sum(response)/Total_events)*100,
             Max_Stage_Response_cm = max(Stage_range)/10,
             Mean_Stage_response_cm = mean(Stage_range)/10) %>%
