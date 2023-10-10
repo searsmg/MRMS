@@ -13,13 +13,13 @@ missing_dates = []
 fallback_to_radaronly = False #Enables a post-processing step that will go through the list of missing dates for gage-corrected
 ############################# and tries to go get the radar-only values if they exist.
 
-destination = "/Volumes/WCNR-Network/Research/Kampf/Private/SearsM/MRMS_2023_multisensor"
+destination = "/Volumes/Kampf/Private/SearsM/MRMS_2023_multisensor"
 
 date = start
 
 while date <= end:
     url = "http://mtarchive.geol.iastate.edu/{:04d}/{:02d}/{:02d}/mrms/ncep/MultiSensor_QPE_01H_Pass2/MultiSensor_QPE_01H_Pass2_00.00_{:04d}{:02d}{:02d}-{:02d}0000.grib2.gz".format(
-        date.year, date.month, date.day, date.year, date.month, date.day, date.hour, date.minute)
+        date.year, date.month, date.day, date.year, date.month, date.day, date.hour)
     filename = url.split("/")[-1]
     try:
         fetched_request = urllib.request.urlopen(url)
@@ -29,7 +29,7 @@ while date <= end:
         with open(destination + os.sep + filename, 'wb') as f:
             f.write(fetched_request.read())
     finally:
-        date += minute
+        date += hour
 
 if fallback_to_radaronly:
     radar_also_missing = []

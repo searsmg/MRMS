@@ -6,7 +6,7 @@ import os
 
 ###/Users/megansears/Documents/Repos/MRMS/retrieve_qpe_gagecorr_01h.py
 
-start = datetime(2023, 4, 30, 0, 0)
+start = datetime(2023, 8, 31, 4, 36)
 end = datetime(2023, 10, 2, 23, 58)
 #hour = timedelta(hours=1)
 minute = timedelta(minutes=2)
@@ -15,7 +15,7 @@ missing_dates = []
 fallback_to_radaronly = False #Enables a post-processing step that will go through the list of missing dates for gage-corrected
 ############################# and tries to go get the radar-only values if they exist.
 
-destination = "/Volumes/WCNR-Network/Research/Kampf/Private/SearsM/MRMS_2023_preciprate"
+destination = "/Volumes/Kampf/Private/SearsM/MRMS_2023_preciprate"
 
 date = start
 
