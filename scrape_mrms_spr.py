@@ -6,7 +6,7 @@ import os
 
 ###/Users/megansears/Documents/Repos/MRMS/retrieve_qpe_gagecorr_01h.py
 
-start = datetime(2023, 8, 31, 4, 36)
+start = datetime(2023, 9, 23, 7, 48)
 end = datetime(2023, 10, 2, 23, 58)
 #hour = timedelta(hours=1)
 minute = timedelta(minutes=2)
